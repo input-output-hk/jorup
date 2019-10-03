@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "jorup-lib",
+    "jorup",
+    "hel",
+]

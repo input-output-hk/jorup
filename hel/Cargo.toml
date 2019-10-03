@@ -1,0 +1,23 @@
+[package]
+name = "hel"
+version = "0.1.0"
+authors = ["Nicolas Di Prima <nicolas.diprima@iohk.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+jorup-lib = { path = "../jorup-lib" }
+poldercast = "0.7"
+error-chain = '0.12'
+hex = "0.4"
+clap = "2.33"
+console = "0.9"
+dialoguer = "0.4"
+indicatif = "0.12"
+semver = { version = "0.9.0", features = ["serde"] }
+serde = { version = "1.0", features = ['derive'] }
+serde_ignored = "0.1.0"
+serde_json = { version = "1.0", features = ["raw_value"] }
+curl = "0.4"
+walkdir = "2.2"
