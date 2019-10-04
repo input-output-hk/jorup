@@ -121,6 +121,7 @@ impl Entry {
     pub fn channel(&self) -> &Channel {
         &self.channel
     }
+
     pub fn description(&self) -> &str {
         &self.description
     }
@@ -150,6 +151,40 @@ impl Genesis {
     /// block0 content genesis file
     pub fn content(&self) -> &str {
         &self.content
+    }
+}
+
+impl Channel {
+    pub fn channel(&self) -> &str {
+        match self {
+            Self::Nightly { .. } => "nightly",
+            Self::Stable { .. } => "stable",
+        }
+    }
+
+    pub fn version(&self) -> &Version {
+        match self {
+            Self::Stable { version } => version,
+            Self::Nightly { version, .. } => version,
+        }
+    }
+
+    pub fn is_nightly(&self) -> bool {
+        match self {
+            Self::Nightly { .. } => true,
+            Self::Stable { .. } => false,
+        }
+    }
+
+    pub fn is_stabler(&self) -> bool {
+        !self.is_nightly()
+    }
+
+    pub fn nightly_date(&self) -> Option<String> {
+        match self {
+            Self::Stable { .. } => None,
+            Self::Nightly { date, .. } => Some(date.format("%F").to_string()),
+        }
     }
 }
 

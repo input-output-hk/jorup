@@ -4,6 +4,9 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct JorupConfig {
     home_dir: PathBuf,
+
+    jor_file: Option<PathBuf>,
+    offline: bool,
 }
 
 error_chain! {
@@ -28,7 +31,16 @@ impl JorupConfig {
         std::fs::create_dir_all(&home_dir)
             .chain_err(|| ErrorKind::CannotCreateHomeDir(home_dir.clone()))?;
 
-        let cfg = JorupConfig { home_dir };
+        let jor_file = if let Some(jor_file) = args.value_of(arg::name::JOR_FILE) {
+            Some(jor_file.into())
+        } else {
+            None
+        };
+        let cfg = JorupConfig {
+            home_dir,
+            jor_file,
+            offline: args.is_present(arg::name::OFFLINE),
+        };
 
         cfg.init()?;
 
@@ -45,6 +57,11 @@ impl JorupConfig {
         Ok(())
     }
 
+    pub fn jorfile(&self) -> PathBuf {
+        self.jor_file
+            .clone()
+            .unwrap_or(self.home_dir.join("jorfile.json"))
+    }
     pub fn bin_dir(&self) -> PathBuf {
         self.home_dir.join("bin")
     }
@@ -53,6 +70,28 @@ impl JorupConfig {
     }
     pub fn release_dir(&self) -> PathBuf {
         self.home_dir.join("release")
+    }
+
+    pub fn offline(&self) -> bool {
+        self.offline
+    }
+
+    pub fn sync_jorfile(&self) -> Result<()> {
+        // do not sync if the jorfile was given as parameter of the
+        // command line or if `--offline`
+        if self.jor_file.is_some() || self.offline {
+            return Ok(());
+        }
+
+        unimplemented!("fetching jor file from the network is not supported yet")
+    }
+
+    pub fn load_jor(&self) -> Result<jorup_lib::Jor> {
+        let file = std::fs::File::open(self.jorfile())
+            .chain_err(|| format!("Cannot open file {}", self.jorfile().display()))?;
+
+        serde_json::from_reader(file)
+            .chain_err(|| format!("cannot parse file {}", self.jorfile().display()))
     }
 }
 
@@ -63,6 +102,8 @@ pub mod arg {
     pub mod name {
         pub const GENERATE_AUTOCOMPLETION: &str = "GENERATE_AUTOCOMPLETION";
         pub const JORUP_HOME: &str = "JORUP_HOME";
+        pub const JOR_FILE: &str = "JOR_FILE";
+        pub const OFFLINE: &str = "JORUP_OFFLINE";
     }
 
     pub fn jorup_home<'a, 'b>() -> Result<Arg<'a, 'b>> {
@@ -82,6 +123,35 @@ $PATH for easy access to the default release's tools
             .multiple(false)
             .global(true);
         Ok(arg)
+    }
+
+    pub fn jor_file<'a, 'b>() -> Arg<'a, 'b> {
+        Arg::with_name(name::JOR_FILE)
+            .long("jorfile")
+            .help("don't use the jor file from from local setting but use given one")
+            .long_help(
+                "This is not to be used lightly as it may put your local jor in an invalid
+state. Instead of fetching the jorfile from the network and/or to use the local one, use
+a specific file. This is useful only for testing. This option does not imply offline.",
+            )
+            .takes_value(true)
+            .value_name(name::JOR_FILE)
+            .multiple(false)
+            .hidden_short_help(true)
+            .global(true)
+    }
+
+    pub fn offline<'a, 'b>() -> Arg<'a, 'b> {
+        Arg::with_name(name::OFFLINE)
+            .long("offline")
+            .help("don't query the release server to update the index")
+            .long_help(
+                "Try only to work with the current states and values. Do not attempt to
+update the known releases and testnets. This may make your system to fail to install specific
+releases if they are not already cached locally.",
+            )
+            .multiple(false)
+            .global(true)
     }
 
     pub fn generate_autocompletion<'a, 'b>() -> Arg<'a, 'b> {

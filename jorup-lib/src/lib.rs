@@ -65,6 +65,21 @@ impl Jor {
         &self.0.entries
     }
 
+    pub fn search_release(&self, version_req: VersionReq) -> Option<&Release> {
+        self.releases()
+            .values()
+            .filter(|release| version_req.matches(release.version()))
+            .last()
+    }
+
+    pub fn search_entry(&self, nightly: bool, version_req: VersionReq) -> Option<&Entry> {
+        self.entries()
+            .values()
+            .filter(|entry| entry.channel().is_nightly() == nightly)
+            .filter(|entry| version_req.matches(entry.channel().version()))
+            .last()
+    }
+
     pub fn add_release(&mut self, release: Release) -> Result<()> {
         if let Some(prev) = self.0.releases.insert(release.version().clone(), release) {
             bail!(ErrorKind::ReleaseConflict(prev.version().clone()))

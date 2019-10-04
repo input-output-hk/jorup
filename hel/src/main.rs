@@ -87,11 +87,11 @@ fn run_main<'a, 'b>(mut app: App<'a, 'b>) -> Result<()> {
     let cfg = common::HelConfig::new(&matches)?;
 
     match matches.subcommand() {
-        (testnet::arg::name::COMMAND, Some(matches)) => Ok(testnet::run(cfg, matches)?),
+        (testnet::arg::name::COMMAND, Some(matches)) => testnet::run(cfg, matches)?,
         (testnet::arg::name::COMMAND, None) => bail!(ErrorKind::ExpectedOptionsOrSubCommands(
             testnet::arg::name::COMMAND.to_owned()
         )),
-        (release::arg::name::COMMAND, Some(matches)) => Ok(release::run(cfg, matches)?),
+        (release::arg::name::COMMAND, Some(matches)) => release::run(cfg, matches)?,
         (release::arg::name::COMMAND, None) => bail!(ErrorKind::ExpectedOptionsOrSubCommands(
             release::arg::name::COMMAND.to_owned()
         )),
@@ -102,6 +102,8 @@ fn run_main<'a, 'b>(mut app: App<'a, 'b>) -> Result<()> {
             bail!(ErrorKind::UnknownCommand(cmd.to_owned()))
         }
     }
+
+    Ok(())
 
     // hel release add v0.5.1 --channel v0.5 --channel v0.6 ...
     // * create a new release for jormungandr, query the github releases?
