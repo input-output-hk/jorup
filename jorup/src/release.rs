@@ -1,5 +1,5 @@
 use crate::common::JorupConfig;
-use semver::Version;
+use jorup_lib::Version;
 use std::path::PathBuf;
 
 error_chain! {}

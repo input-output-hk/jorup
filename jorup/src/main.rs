@@ -8,6 +8,7 @@ extern crate lazy_static;
 mod channel;
 mod common;
 mod release;
+mod run;
 mod update;
 
 use clap::{App, AppSettings};
@@ -18,6 +19,7 @@ error_chain! {
     links {
         Common(common::Error, common::ErrorKind);
         Update(update::Error, update::ErrorKind);
+        Run(run::Error, run::ErrorKind);
     }
 
     errors {
@@ -42,6 +44,7 @@ fn run_main() -> Result<()> {
         .arg(common::arg::generate_autocompletion())
         .arg(common::arg::jor_file())
         .arg(common::arg::offline())
+        .subcommand(run::arg::command())
         .subcommand(update::arg::command());
 
     let matches = app.clone().get_matches();
@@ -58,6 +61,7 @@ fn run_main() -> Result<()> {
 
     match matches.subcommand() {
         (update::arg::name::COMMAND, matches) => update::run(cfg, matches.unwrap())?,
+        (run::arg::name::COMMAND, matches) => run::run(cfg, matches.unwrap())?,
         (cmd, _) => {
             if cmd.is_empty() {
                 bail!(ErrorKind::NoCommand)
