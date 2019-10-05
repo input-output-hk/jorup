@@ -5,10 +5,12 @@ extern crate clap;
 #[macro_use(lazy_static)]
 extern crate lazy_static;
 
+mod channel;
 mod common;
+mod release;
 mod update;
 
-use clap::App;
+use clap::{App, AppSettings};
 
 quick_main!(run_main);
 
@@ -32,6 +34,7 @@ error_chain! {
 
 fn run_main() -> Result<()> {
     let mut app = App::new(crate_name!())
+        .settings(&[AppSettings::ColorAuto, AppSettings::VersionlessSubcommands])
         .version(crate_version!())
         .about(crate_description!())
         .author(crate_authors!("\n"))

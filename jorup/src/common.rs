@@ -1,12 +1,27 @@
 use clap::ArgMatches;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, path::PathBuf};
 
 #[derive(Debug)]
 pub struct JorupConfig {
     home_dir: PathBuf,
+    settings: JorupSettings,
 
     jor_file: Option<PathBuf>,
     offline: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum Channel {
+    Stable,
+    Nightly,
+    Specific { channel: jorup_lib::Channel },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JorupSettings {
+    default: Channel,
 }
 
 error_chain! {
@@ -22,6 +37,20 @@ error_chain! {
             description("Cannot create one of the main HOME directory"),
             display("Cannot create directory [={}]", init_dir.display()),
         }
+        CannotSaveSettings(file: PathBuf) {
+            description("Cannot save the setting file"),
+            display("Cannot save settings [={}]", file.display()),
+        }
+    }
+}
+
+impl Channel {
+    pub fn is_nightly(&self) -> bool {
+        match self {
+            Self::Nightly => true,
+            Self::Stable => false,
+            Self::Specific { channel } => channel.is_nightly(),
+        }
     }
 }
 
@@ -36,13 +65,16 @@ impl JorupConfig {
         } else {
             None
         };
-        let cfg = JorupConfig {
+        let mut cfg = JorupConfig {
             home_dir,
+            settings: JorupSettings::default(),
             jor_file,
             offline: args.is_present(arg::name::OFFLINE),
         };
 
         cfg.init()?;
+        cfg.load_settings()?;
+        cfg.detect_installed_path();
 
         Ok(cfg)
     }
@@ -54,7 +86,89 @@ impl JorupConfig {
             .chain_err(|| ErrorKind::CannotCreateInitDir(self.channel_dir()))?;
         std::fs::create_dir_all(self.release_dir())
             .chain_err(|| ErrorKind::CannotCreateInitDir(self.release_dir()))?;
+
+        if !self.jorup_settings_file().is_file() {
+            self.save_settings()?;
+        }
+
         Ok(())
+    }
+
+    fn detect_installed_path(&self) {
+        let bin_dir = if self.bin_dir().is_absolute() {
+            self.bin_dir()
+        } else {
+            std::env::current_dir().unwrap().join(self.bin_dir())
+        };
+        match std::env::var_os("PATH") {
+            Some(paths) => {
+                let present = std::env::split_paths(&paths).any(|path| path == bin_dir);
+                if !present {
+                    eprintln!(
+                        "WARN: environment PATH does not contain bin dir: {}",
+                        bin_dir.display()
+                    );
+                }
+
+                let others: BTreeSet<_> = std::env::split_paths(&paths)
+                    .filter(|path| path != &bin_dir)
+                    .filter(|path| path.join("jormungandr").is_file())
+                    .collect();
+                for other in others {
+                    eprintln!("WARN: found competing installation in {}", other.display());
+                }
+            }
+            None => {
+                eprintln!("WARN: no environment PATH recognized on this system");
+            }
+        }
+    }
+
+    pub fn settings(&self) -> &JorupSettings {
+        &self.settings
+    }
+
+    pub fn current_channel(&self) -> &Channel {
+        &self.settings().default
+    }
+
+    pub fn current_entry<'a>(&self, jor: &'a jorup_lib::Jor) -> Option<&'a jorup_lib::Entry> {
+        let current_default = &self.settings.default;
+
+        jor.entries()
+            .values()
+            .filter(|entry| current_default.is_nightly() == entry.channel().is_nightly())
+            .next()
+    }
+
+    pub fn set_default_channel(&mut self, new_default: Channel) -> Result<()> {
+        self.settings.default = new_default;
+        self.save_settings()
+    }
+
+    fn load_settings(&mut self) -> Result<()> {
+        let toml = std::fs::read_to_string(self.jorup_settings_file()).chain_err(|| {
+            format!(
+                "Cannot open settings file: {}",
+                self.jorup_settings_file().display()
+            )
+        })?;
+
+        self.settings = toml::from_str(&toml).chain_err(|| {
+            format!(
+                "Cannot parse settings file: {}",
+                self.jorup_settings_file().display()
+            )
+        })?;
+        Ok(())
+    }
+
+    fn save_settings(&self) -> Result<()> {
+        std::fs::write(
+            self.jorup_settings_file(),
+            toml::to_vec(&self.settings).chain_err(|| "Cannot encode settings in Toml")?,
+        )
+        .chain_err(|| ErrorKind::CannotSaveSettings(self.jorup_settings_file()))
     }
 
     pub fn jorfile(&self) -> PathBuf {
@@ -70,6 +184,9 @@ impl JorupConfig {
     }
     pub fn release_dir(&self) -> PathBuf {
         self.home_dir.join("release")
+    }
+    pub fn jorup_settings_file(&self) -> PathBuf {
+        self.home_dir.join("settings.toml")
     }
 
     pub fn offline(&self) -> bool {
@@ -92,6 +209,56 @@ impl JorupConfig {
 
         serde_json::from_reader(file)
             .chain_err(|| format!("cannot parse file {}", self.jorfile().display()))
+    }
+}
+
+impl Default for JorupSettings {
+    fn default() -> Self {
+        JorupSettings {
+            default: Channel::Stable,
+        }
+    }
+}
+
+impl std::str::FromStr for Channel {
+    type Err = <jorup_lib::Channel as std::str::FromStr>::Err;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "stable" => Ok(Channel::Stable),
+            "nightly" => Ok(Channel::Nightly),
+            s => Ok(Channel::Specific {
+                channel: s.parse()?,
+            }),
+        }
+    }
+}
+impl std::fmt::Display for Channel {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Channel::Stable => "stable".fmt(f),
+            Channel::Nightly => "nightly".fmt(f),
+            Channel::Specific { channel } => channel.fmt(f),
+        }
+    }
+}
+
+impl Serialize for Channel {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Channel {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(D::Error::custom)
     }
 }
 
