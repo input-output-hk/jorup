@@ -103,7 +103,7 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
             Release::new(&cfg, release.clone())
                 .chain_err(|| ErrorKind::Release(release.version().clone()))?
         } else {
-            bail!("No release")
+            bail!("No release for this channel")
         };
     let asset = release
         .asset_remote()

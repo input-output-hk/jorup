@@ -1,7 +1,8 @@
 use crate::{channel::Channel, common::JorupConfig, release::Release};
 use clap::ArgMatches;
-use curl::easy::Easy;
 use jorup_lib::{Version, VersionReq};
+use tokio::prelude::*;
+use tokio_process::CommandExt as _;
 
 pub mod arg {
     use clap::{App, Arg, SubCommand};
@@ -88,7 +89,7 @@ pub fn run<'a>(cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
             Release::new(&cfg, release.clone())
                 .chain_err(|| ErrorKind::Release(release.version().clone()))?
         } else {
-            bail!("No release")
+            bail!("No release for this channel")
         };
 
     if release.asset_need_fetched() {
@@ -103,6 +104,26 @@ pub fn run<'a>(cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
         .asset_open()
         .chain_err(|| ErrorKind::Release(release.version().clone()))?;
 
-    println!("**** channel updated to version {}", release.version());
+    let mut cmd = std::process::Command::new(release.get_jormungandr());
+
+    cmd.current_dir(channel.dir());
+
+    cmd.args(&[
+        "--genesis-block",
+        channel.get_genesis_block().display().to_string().as_str(),
+    ]);
+
+    for peer in entry.known_trusted_peers() {
+        cmd.args(&["--trusted-peer", peer.to_string().as_str()]);
+    }
+
+    let child = cmd.spawn_async().chain_err(|| "Cannot start jormungandr")?;
+
+    tokio::run(
+        child
+            .map(|status| println!("exit status: {}", status))
+            .map_err(|e| panic!("failed to wait for exit: {}", e)),
+    );
+
     Ok(())
 }

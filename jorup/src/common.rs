@@ -57,6 +57,13 @@ impl Channel {
 impl JorupConfig {
     pub fn new<'a>(args: &ArgMatches<'a>) -> Result<Self> {
         let home_dir = value_t!(args, arg::name::JORUP_HOME, PathBuf).unwrap();
+
+        let home_dir = if home_dir.is_absolute() {
+            home_dir
+        } else {
+            std::env::current_dir().unwrap().join(home_dir)
+        };
+
         std::fs::create_dir_all(&home_dir)
             .chain_err(|| ErrorKind::CannotCreateHomeDir(home_dir.clone()))?;
 
