@@ -5,11 +5,12 @@ extern crate clap;
 #[macro_use(lazy_static)]
 extern crate lazy_static;
 
-mod channel;
 mod common;
-mod release;
+mod info;
 mod run;
+mod shutdown;
 mod update;
+mod utils;
 
 use clap::{App, AppSettings};
 
@@ -20,6 +21,8 @@ error_chain! {
         Common(common::Error, common::ErrorKind);
         Update(update::Error, update::ErrorKind);
         Run(run::Error, run::ErrorKind);
+        Shutdown(shutdown::Error, shutdown::ErrorKind);
+        Info(info::Error, info::ErrorKind);
     }
 
     errors {
@@ -45,6 +48,8 @@ fn run_main() -> Result<()> {
         .arg(common::arg::jor_file())
         .arg(common::arg::offline())
         .subcommand(run::arg::command())
+        .subcommand(shutdown::arg::command())
+        .subcommand(info::arg::command())
         .subcommand(update::arg::command());
 
     let matches = app.clone().get_matches();
@@ -62,6 +67,8 @@ fn run_main() -> Result<()> {
     match matches.subcommand() {
         (update::arg::name::COMMAND, matches) => update::run(cfg, matches.unwrap())?,
         (run::arg::name::COMMAND, matches) => run::run(cfg, matches.unwrap())?,
+        (shutdown::arg::name::COMMAND, matches) => shutdown::run(cfg, matches.unwrap())?,
+        (info::arg::name::COMMAND, matches) => info::run(cfg, matches.unwrap())?,
         (cmd, _) => {
             if cmd.is_empty() {
                 bail!(ErrorKind::NoCommand)

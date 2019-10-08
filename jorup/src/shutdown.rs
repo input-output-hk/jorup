@@ -7,22 +7,17 @@ use jorup_lib::Version;
 
 pub mod arg {
     use crate::utils::channel::Channel;
-    use clap::{App, Arg, SubCommand};
+    use clap::{App, SubCommand};
 
     pub mod name {
-        pub const COMMAND: &str = "run";
-        pub const DAEMON: &str = "DAEMON";
+        pub const COMMAND: &str = "shutdown";
     }
 
     pub fn command<'a, 'b>() -> App<'a, 'b> {
         SubCommand::with_name(name::COMMAND)
-            .about("Run the jormungandr")
+            .alias("stop")
+            .about("Stop jormungandr")
             .arg(Channel::arg())
-            .arg(
-                Arg::with_name(name::DAEMON)
-                    .long("daemon")
-                    .help("Run the node as a daemon"),
-            )
     }
 }
 
@@ -39,7 +34,6 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
     cfg.sync_jorfile().chain_err(|| {
         "Error while syncing releases and channels, no internet? try `--offline`..."
     })?;
-    let daemon = matches.is_present(arg::name::DAEMON);
 
     // prepare entry directory
     let channel = Channel::load(&mut cfg, matches)
@@ -66,9 +60,7 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
     let mut runner = RunnerControl::new(&channel, &release)
         .chain_err(|| "Unable to start the runner controller")?;
 
-    if daemon {
-        runner.spawn().chain_err(|| "Unable to start the node")
-    } else {
-        runner.run().chain_err(|| "Unable to start the node")
-    }
+    runner
+        .shutdown()
+        .chain_err(|| "unable to stop/shutdown the node")
 }

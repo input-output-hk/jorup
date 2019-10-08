@@ -1,5 +1,5 @@
 use crate::common::JorupConfig;
-use jorup_lib::Version;
+use jorup_lib::{Version, VersionReq};
 use std::path::PathBuf;
 
 error_chain! {}
@@ -11,7 +11,14 @@ pub struct Release {
 }
 
 impl Release {
-    pub fn new(cfg: &JorupConfig, release: jorup_lib::Release) -> Result<Self> {
+    pub fn new(cfg: &mut JorupConfig, req: &VersionReq) -> Result<Self> {
+        let release = cfg
+            .load_jor()
+            .unwrap()
+            .search_release(req.clone())
+            .map(|c| c.clone())
+            .ok_or_else(|| format!("No release that matches `{}`", req))?;
+
         let path = cfg.release_dir().join(release.version().to_string());
         std::fs::create_dir_all(&path)
             .chain_err(|| format!("Error while creating directory '{}'", path.display()))?;

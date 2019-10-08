@@ -1,3 +1,4 @@
+use crate::utils::channel::ChannelVersion;
 use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -8,20 +9,14 @@ pub struct JorupConfig {
     settings: JorupSettings,
 
     jor_file: Option<PathBuf>,
+    jor: Option<jorup_lib::Jor>,
     offline: bool,
-}
-
-#[derive(Debug, Clone)]
-pub enum Channel {
-    Stable,
-    Nightly,
-    Specific { channel: jorup_lib::Channel },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JorupSettings {
-    default: Channel,
+    default: ChannelVersion,
 }
 
 error_chain! {
@@ -40,16 +35,6 @@ error_chain! {
         CannotSaveSettings(file: PathBuf) {
             description("Cannot save the setting file"),
             display("Cannot save settings [={}]", file.display()),
-        }
-    }
-}
-
-impl Channel {
-    pub fn is_nightly(&self) -> bool {
-        match self {
-            Self::Nightly => true,
-            Self::Stable => false,
-            Self::Specific { channel } => channel.is_nightly(),
         }
     }
 }
@@ -76,6 +61,7 @@ impl JorupConfig {
             home_dir,
             settings: JorupSettings::default(),
             jor_file,
+            jor: None,
             offline: args.is_present(arg::name::OFFLINE),
         };
 
@@ -135,20 +121,25 @@ impl JorupConfig {
         &self.settings
     }
 
-    pub fn current_channel(&self) -> &Channel {
+    pub fn current_channel(&self) -> &ChannelVersion {
         &self.settings().default
     }
 
-    pub fn current_entry<'a>(&self, jor: &'a jorup_lib::Jor) -> Option<&'a jorup_lib::Entry> {
+    pub fn current_entry(&mut self) -> Result<Option<&jorup_lib::Entry>> {
+        self.load_jor()?;
         let current_default = &self.settings.default;
 
-        jor.entries()
+        Ok(self
+            .jor
+            .as_ref()
+            .unwrap()
+            .entries()
             .values()
             .filter(|entry| current_default.is_nightly() == entry.channel().is_nightly())
-            .next()
+            .last())
     }
 
-    pub fn set_default_channel(&mut self, new_default: Channel) -> Result<()> {
+    pub fn set_default_channel(&mut self, new_default: ChannelVersion) -> Result<()> {
         self.settings.default = new_default;
         self.save_settings()
     }
@@ -210,62 +201,25 @@ impl JorupConfig {
         unimplemented!("fetching jor file from the network is not supported yet")
     }
 
-    pub fn load_jor(&self) -> Result<jorup_lib::Jor> {
-        let file = std::fs::File::open(self.jorfile())
-            .chain_err(|| format!("Cannot open file {}", self.jorfile().display()))?;
+    pub fn load_jor(&mut self) -> Result<&jorup_lib::Jor> {
+        if self.jor.is_none() {
+            let file = std::fs::File::open(self.jorfile())
+                .chain_err(|| format!("Cannot open file {}", self.jorfile().display()))?;
 
-        serde_json::from_reader(file)
-            .chain_err(|| format!("cannot parse file {}", self.jorfile().display()))
+            let jor = serde_json::from_reader(file)
+                .chain_err(|| format!("cannot parse file {}", self.jorfile().display()))?;
+            self.jor = Some(jor);
+        }
+
+        Ok(self.jor.as_ref().unwrap())
     }
 }
 
 impl Default for JorupSettings {
     fn default() -> Self {
         JorupSettings {
-            default: Channel::Stable,
+            default: ChannelVersion::Stable,
         }
-    }
-}
-
-impl std::str::FromStr for Channel {
-    type Err = <jorup_lib::Channel as std::str::FromStr>::Err;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "stable" => Ok(Channel::Stable),
-            "nightly" => Ok(Channel::Nightly),
-            s => Ok(Channel::Specific {
-                channel: s.parse()?,
-            }),
-        }
-    }
-}
-impl std::fmt::Display for Channel {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Channel::Stable => "stable".fmt(f),
-            Channel::Nightly => "nightly".fmt(f),
-            Channel::Specific { channel } => channel.fmt(f),
-        }
-    }
-}
-
-impl Serialize for Channel {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::ser::Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for Channel {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        use serde::de::Error as _;
-        let s = String::deserialize(deserializer)?;
-        s.parse().map_err(D::Error::custom)
     }
 }
 
