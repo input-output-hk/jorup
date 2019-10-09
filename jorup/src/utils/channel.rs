@@ -172,10 +172,6 @@ impl Channel {
         self.dir().join("wallet.secret.key")
     }
 
-    pub fn get_wallet_public(&self) -> PathBuf {
-        self.dir().join("wallet.public.key")
-    }
-
     pub fn dir(&self) -> &PathBuf {
         &self.path
     }

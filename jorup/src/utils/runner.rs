@@ -3,7 +3,7 @@ use jorup_lib::Version;
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, ExitStatus, Stdio},
 };
 use tokio::prelude::*;
 use tokio_process::CommandExt as _;
@@ -41,6 +41,11 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                 Some(info)
             } else {
                 eprintln!("WARN: removing previous runner file");
+                eprintln!("      it seems a previous node was not shutdown properly");
+                eprintln!(
+                    "      check {} for more information",
+                    channel.get_log_file().display()
+                );
                 std::fs::remove_file(channel.get_runner_file())
                     .chain_err(|| "Cannot remove the running file")?;
                 None
@@ -278,6 +283,83 @@ rest:
             Ok(())
         } else {
             bail!("Cannot stop running node? Invalid state")
+        }
+    }
+
+    pub fn get_wallet_secret_key(&mut self, force: bool) -> Result<PathBuf> {
+        let wallet_path = self.channel.get_wallet_secret();
+
+        if !wallet_path.is_file() || force {
+            self.gen_secret_key("Ed25519", &wallet_path)?;
+        }
+
+        Ok(wallet_path)
+    }
+
+    pub fn get_wallet_address(&mut self) -> Result<String> {
+        let pk = self.get_public_key(self.channel.get_wallet_secret())?;
+
+        let address = self.make_address(pk.trim_end())?;
+
+        Ok(address.trim_end().to_owned())
+    }
+
+    fn make_address<PK: AsRef<str>>(&mut self, public_key: PK) -> Result<String> {
+        let output = self
+            .jcli()?
+            .args(&[
+                "address",
+                "account",
+                "--testing",
+                "--prefix=jorup_",
+                public_key.as_ref(),
+            ])
+            .output()
+            .chain_err(|| "unable to create the address")?;
+        String::from_utf8(output.stdout).chain_err(|| "Invalid address")
+    }
+
+    fn get_public_key<P>(&mut self, secret_key: P) -> Result<String>
+    where
+        P: AsRef<Path>,
+    {
+        if !secret_key.as_ref().is_file() {
+            bail!("No secret key, did you mean to create a secret key too?")
+        }
+
+        let output = self
+            .jcli()?
+            .args(&[
+                "key",
+                "to-public",
+                "--input",
+                secret_key.as_ref().display().to_string().as_str(),
+            ])
+            .output()
+            .chain_err(|| "unable to extract the public key")?;
+
+        String::from_utf8(output.stdout).chain_err(|| "Invalid public key")
+    }
+
+    fn gen_secret_key<P>(&mut self, key_type: &str, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let status = self
+            .jcli()?
+            .args(&[
+                "key",
+                "generate",
+                "--type",
+                key_type,
+                path.as_ref().display().to_string().as_str(),
+            ])
+            .status()
+            .chain_err(|| format!("Cannot generate key {}", key_type))?;
+        if status.success() {
+            Ok(())
+        } else {
+            bail!(format!("Cannot generate key {}", key_type))
         }
     }
 }
