@@ -36,10 +36,6 @@ error_chain! {
 }
 
 pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
-    cfg.sync_jorfile().chain_err(|| {
-        "Error while syncing releases and channels, no internet? try `--offline`..."
-    })?;
-
     let force_new = matches.is_present("FORCE_CREATE_WALLET");
 
     // prepare entry directory

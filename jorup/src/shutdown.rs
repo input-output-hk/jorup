@@ -31,10 +31,6 @@ error_chain! {
 }
 
 pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
-    cfg.sync_jorfile().chain_err(|| {
-        "Error while syncing releases and channels, no internet? try `--offline`..."
-    })?;
-
     // prepare entry directory
     let channel = Channel::load(&mut cfg, matches)
         .chain_err(|| "Cannot run the node without valid channel")?;

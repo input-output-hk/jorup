@@ -36,9 +36,6 @@ error_chain! {
 }
 
 pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
-    cfg.sync_jorfile().chain_err(|| {
-        "Error while syncing releases and channels, no internet? try `--offline`..."
-    })?;
     let daemon = matches.is_present(arg::name::DAEMON);
 
     // prepare entry directory
