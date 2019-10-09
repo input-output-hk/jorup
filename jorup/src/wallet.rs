@@ -21,7 +21,7 @@ pub mod arg {
                 Arg::with_name("FORCE_CREATE_WALLET")
                     .long("force-create")
                     .alias("force")
-                    .help("force re-creating a wallet if it does not exists already"),
+                    .help("force re-creating a wallet if it does exists already"),
             )
     }
 }
