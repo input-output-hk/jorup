@@ -8,6 +8,7 @@ extern crate lazy_static;
 mod common;
 mod info;
 mod run;
+mod setup;
 mod shutdown;
 mod update;
 mod utils;
@@ -25,6 +26,7 @@ error_chain! {
         Shutdown(shutdown::Error, shutdown::ErrorKind);
         Info(info::Error, info::ErrorKind);
         Wallet(wallet::Error, wallet::ErrorKind);
+        Setup(setup::Error, setup::ErrorKind);
     }
 
     errors {
@@ -53,6 +55,7 @@ fn run_main() -> Result<()> {
         .subcommand(shutdown::arg::command())
         .subcommand(info::arg::command())
         .subcommand(wallet::arg::command())
+        .subcommand(setup::arg::commands())
         .subcommand(update::arg::command());
 
     let matches = app.clone().get_matches();
@@ -73,6 +76,7 @@ fn run_main() -> Result<()> {
         (shutdown::arg::name::COMMAND, matches) => shutdown::run(cfg, matches.unwrap())?,
         (info::arg::name::COMMAND, matches) => info::run(cfg, matches.unwrap())?,
         (wallet::arg::name::COMMAND, matches) => wallet::run(cfg, matches.unwrap())?,
+        (setup::arg::name::COMMAND, matches) => setup::run(cfg, matches.unwrap())?,
         (cmd, _) => {
             if cmd.is_empty() {
                 bail!(ErrorKind::NoCommand)
