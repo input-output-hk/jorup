@@ -18,10 +18,9 @@ main() {
     test -f Cargo.lock || cargo generate-lockfile
 
     # TODO Update this to build the artifacts that matter to you
-    cross rustc -p jorup --target $TARGET --release -- -C lto
+    cross rustc -p jorup --bin jorup --target $TARGET --release -- -C lto
 
-    cp target/$TARGET/release/jormungandr $stage/
-    cp target/$TARGET/release/jcli $stage/
+    cp target/$TARGET/release/jorup $stage/
 
     cd $stage
     tar czf $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz *

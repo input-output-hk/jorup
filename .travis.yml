@@ -27,8 +27,8 @@ matrix:
     - env: TARGET=x86_64-unknown-linux-musl
 
     # *BSD
-    - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
-    - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
+    # - env: TARGET=x86_64-unknown-freebsd DISABLE_TESTS=1
+    # - env: TARGET=x86_64-unknown-netbsd DISABLE_TESTS=1
 
 before_install:
   - set -e
@@ -36,16 +36,16 @@ before_install:
 
 install:
   - rustup update stable
-  - sh .ci/install.sh
+  - sh ci/install.sh
   - source ~/.cargo/env || true
 
 script:
-  - bash .ci/script.sh
+  - bash ci/script.sh
 
 after_script: set +e
 
 before_deploy:
-  - sh .ci/before_deploy.sh
+  - sh ci/before_deploy.sh
 
 deploy:
   - provider: releases

@@ -23,7 +23,13 @@ pub mod arg {
                     Arg::with_name("NO_MODIFY_PATH")
                         .long("no-modify-path")
                         .help("Don't change the local PATH variables"),
-                ),
+                )
+                .arg(
+                    Arg::with_name("FORCE_INSTALL")
+                        .long("force")
+                        .short("f")
+                        .help("Even if a previous installed jorup is already installed, install this new version")
+                )
             )
             .subcommand(SubCommand::with_name("update"))
             .subcommand(SubCommand::with_name("uninstall").alias("remove"))
@@ -48,12 +54,23 @@ pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()
     let no_modify_path = args
         .map(|args| args.is_present("NO_MODIFY_PATH"))
         .unwrap_or(false);
+    let force = args
+        .map(|args| args.is_present("FORCE_INSTALL"))
+        .unwrap_or(false);
 
     let bin_dir = cfg.bin_dir();
     let jorup_file = bin_dir.join(format!("jorup{}", EXE_SUFFIX));
 
     if jorup_file.is_file() {
-        bail!(format!("jorup already installed: {}", jorup_file.display()))
+        let force = force
+            || dialoguer::Confirmation::new()
+                .with_text("jorup is already installed, overwrite?")
+                .interact()
+                .unwrap();
+
+        if !force {
+            bail!(format!("jorup already installed: {}", jorup_file.display()))
+        }
     }
 
     let jorup_current = std::env::current_exe()
@@ -62,7 +79,7 @@ pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()
         .chain_err(|| format!("Cannot install jorup in {}", jorup_file.display()))?;
     make_executable(&jorup_file).chain_err(|| "Cannot make installed bin executable")?;
 
-    if no_modify_path {
+    if !no_modify_path {
         do_add_to_path(&cfg, &get_add_path_methods()).chain_err(|| "Cannot update the PATH")?;
     }
 
@@ -190,5 +207,5 @@ fn do_add_to_path(cfg: &JorupConfig, methods: &[PathUpdateMethod]) -> Result<()>
 
 #[cfg(windows)]
 fn do_add_to_path(_cfg: &JorupConfig, _methods: &[PathUpdateMethod]) -> Result<()> {
-    unimplemented!("Windows support not yet implemented")
+    bail!("Windows support not fully implemented yet")
 }
