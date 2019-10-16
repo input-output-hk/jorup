@@ -90,11 +90,6 @@ fn run_add<'a>(cfg: HelConfig, matches: &ArgMatches<'a>) -> Result<()> {
     };
     entry_builder.disposition(disposition);
 
-    entry_builder.known_trusted_peers(
-        values_t!(matches, arg::name::KNOWN_TRUSTED_PEERS, poldercast::Address)
-            .unwrap_or_else(|_e| Vec::default()),
-    );
-
     let genesis_data = if let Some(genesis_file) = matches.value_of(arg::name::GENESIS_FILE) {
         use std::io::Read as _;
         let mut content = String::new();

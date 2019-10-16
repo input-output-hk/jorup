@@ -7,7 +7,6 @@ pub mod name {
     pub const VERSION_REQ: &str = "JORMUNGANDR_VERSION";
     pub const DESCRIPTION: &str = "DESCRIPTION";
     pub const DISPOSITION: &str = "DISPOSITION";
-    pub const KNOWN_TRUSTED_PEERS: &str = "KNOWN_TRUSTED_PEERS";
     pub const GENESIS_FILE: &str = "GENESIS_FILE";
 }
 
@@ -76,14 +75,6 @@ fn command_add<'a, 'b>() -> App<'a, 'b> {
                 .help("initial disposition of this testnet")
                 .default_value("up")
                 .possible_values(&["up", "down"]),
-        )
-        .arg(
-            Arg::with_name(name::KNOWN_TRUSTED_PEERS)
-                .long("trusted-peer")
-                .value_name(name::KNOWN_TRUSTED_PEERS)
-                .multiple(true)
-                .help("known trusted peers for user to connect to")
-                .validator(validator::address),
         )
         .arg(
             Arg::with_name(name::GENESIS_FILE)
