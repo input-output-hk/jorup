@@ -19,7 +19,7 @@ pub struct Entry {
     genesis: Genesis,
     /// the list of trusted peers that can be used to connect to the
     /// network.
-    known_trusted_peers: Vec<poldercast::Address>,
+    known_trusted_peers: Vec<TrustedPeer>,
 }
 
 pub struct EntryBuilder {
@@ -28,7 +28,13 @@ pub struct EntryBuilder {
     disposition: Option<Disposition>,
     jormungandr_versions: Option<VersionReq>,
     genesis: Option<Genesis>,
-    known_trusted_peers: Vec<poldercast::Address>,
+    known_trusted_peers: Vec<TrustedPeer>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+pub struct TrustedPeer {
+    address: poldercast::Address,
+    id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -85,7 +91,7 @@ impl EntryBuilder {
     }
     pub fn known_trusted_peers<I>(&mut self, trusted_peers: I) -> &mut Self
     where
-        I: IntoIterator<Item = poldercast::Address>,
+        I: IntoIterator<Item = TrustedPeer>,
     {
         self.known_trusted_peers = trusted_peers.into_iter().collect();
         self
@@ -134,8 +140,17 @@ impl Entry {
     pub fn genesis(&self) -> &Genesis {
         &self.genesis
     }
-    pub fn known_trusted_peers(&self) -> &[poldercast::Address] {
+    pub fn known_trusted_peers(&self) -> &[TrustedPeer] {
         &self.known_trusted_peers
+    }
+}
+
+impl TrustedPeer {
+    pub fn address(&self) -> &poldercast::Address {
+        &self.address
+    }
+    pub fn id(&self) -> &str {
+        &self.id
     }
 }
 

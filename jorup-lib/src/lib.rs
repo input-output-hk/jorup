@@ -16,7 +16,7 @@ pub use jormungandr::{Release, ReleaseBuilder, Url, UrlBuilder, AVAILABLE_PLATFO
 pub use platforms::Platform;
 pub use semver::{Version, VersionReq};
 pub use testnet::{
-    Channel, ChannelError, ChannelErrorKind, Disposition, Entry, EntryBuilder, Genesis,
+    Channel, ChannelError, ChannelErrorKind, Disposition, Entry, EntryBuilder, Genesis, TrustedPeer,
 };
 
 error_chain! {

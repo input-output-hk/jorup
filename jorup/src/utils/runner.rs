@@ -147,7 +147,10 @@ rest:
         ]);
 
         for peer in channel.entry().known_trusted_peers() {
-            cmd.args(&["--trusted-peer", peer.to_string().as_str()]);
+            cmd.args(&[
+                "--trusted-peer",
+                &format!("{}@{}", peer.address(), peer.id()),
+            ]);
         }
 
         if channel.get_node_secret().is_file() {
