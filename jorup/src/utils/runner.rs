@@ -140,6 +140,8 @@ rest:
         cmd.current_dir(channel.dir());
 
         cmd.args(&[
+            "--storage",
+            channel.get_node_storage().display().to_string().as_str(),
             "--config",
             channel.get_node_config().display().to_string().as_str(),
             "--genesis-block",

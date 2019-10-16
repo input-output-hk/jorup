@@ -160,6 +160,10 @@ impl Channel {
         self.dir().join("genesis.block.hash")
     }
 
+    pub fn get_node_storage(&self) -> PathBuf {
+        self.dir().join("node-storage")
+    }
+
     pub fn get_node_config(&self) -> PathBuf {
         self.dir().join("node-config.yaml")
     }
