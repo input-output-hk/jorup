@@ -79,7 +79,7 @@ Licensed under either of
 at your option.
 
 <!-- Badges -->
-[travis-url]: https://travis-ci.com/input-output-hk/jorup
-[travis-badge]: https://travis-ci.com/input-output-hk/jorup.svg
+[travis-url]: https://travis-ci.org/input-output-hk/jorup
+[travis-badge]: https://travis-ci.org/input-output-hk/jorup.svg?branch=master
 [appveyor-url]: https://ci.appveyor.com/project/NicolasDP/jorup
 [appveyor-badge]: https://ci.appveyor.com/api/projects/status/github/input-output-hk/jorup?svg=true
