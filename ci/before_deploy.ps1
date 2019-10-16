@@ -8,13 +8,9 @@ Set-Location $ENV:Temp
 New-Item -Type Directory -Name $STAGE
 Set-Location $STAGE
 
-$ZIP = "$SRC_DIR\$($Env:CRATE_NAME)-$($Env:APPVEYOR_REPO_TAG_NAME)-$($Env:TARGET).zip"
+$RELEASED_BINARIES = "$SRC_DIR\target\$($Env:TARGET)\release\jorup.exe"
 
-Copy-Item "$SRC_DIR\target\$($Env:TARGET)\release\jorup.exe" '.\'
-
-7z a "$ZIP" *
-
-Push-AppveyorArtifact "$ZIP"
+Push-AppveyorArtifact "$RELEASED_BINARIES"
 
 Remove-Item *.* -Force
 Set-Location ..

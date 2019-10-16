@@ -3,8 +3,7 @@
 set -ex
 
 main() {
-    local src=$(pwd) \
-          stage=
+    local src=$(pwd)
 
     case $TRAVIS_OS_NAME in
         linux)
@@ -20,13 +19,7 @@ main() {
     # TODO Update this to build the artifacts that matter to you
     cross rustc -p jorup --bin jorup --target $TARGET --release -- -C lto
 
-    cp target/$TARGET/release/jorup $stage/
-
-    cd $stage
-    tar czf $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz *
-    cd $src
-
-    rm -rf $stage
+    cp target/$TARGET/release/jorup $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET
 }
 
 main
