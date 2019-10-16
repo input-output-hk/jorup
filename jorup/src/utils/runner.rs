@@ -63,6 +63,32 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         })
     }
 
+    pub fn override_jormungandr<P>(&mut self, jormungandr: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let jormungandr = jormungandr.as_ref();
+        let jormungandr = if jormungandr.is_relative() {
+            std::env::current_dir().unwrap().join(jormungandr)
+        } else {
+            jormungandr.to_path_buf()
+        };
+
+        let version = get_version("jormungandr ", &jormungandr)?;
+        let version_req = self.channel.entry().jormungandr_versions();
+
+        if version_req.matches(&version) {
+            self.jormungandr = Some(jormungandr);
+            Ok(())
+        } else {
+            bail!(
+                "Invalid version for jormungandr, Version ({}) does not match requirement `{}`",
+                version,
+                version_req
+            )
+        }
+    }
+
     pub fn jcli(&mut self) -> Result<Command> {
         if let Some(jcli) = &self.jcli {
             return Ok(Command::new(jcli));

@@ -4,6 +4,7 @@ use crate::{
 };
 use clap::ArgMatches;
 use jorup_lib::Version;
+use std::path::PathBuf;
 
 pub mod arg {
     use crate::utils::channel::Channel;
@@ -12,6 +13,7 @@ pub mod arg {
     pub mod name {
         pub const COMMAND: &str = "run";
         pub const DAEMON: &str = "DAEMON";
+        pub const JORMUNGANDR: &str = "JORMUNGANDR";
     }
 
     pub fn command<'a, 'b>() -> App<'a, 'b> {
@@ -22,6 +24,14 @@ pub mod arg {
                 Arg::with_name(name::DAEMON)
                     .long("daemon")
                     .help("Run the node as a daemon"),
+            )
+            .arg(
+                Arg::with_name(name::JORMUNGANDR)
+                    .long("jormungandr")
+                    .takes_value(true)
+                    .value_name("PATH")
+                    .help("use this specified binary as executable")
+                    .hidden(true),
             )
     }
 }
@@ -62,6 +72,12 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
 
     let mut runner = RunnerControl::new(&channel, &release)
         .chain_err(|| "Unable to start the runner controller")?;
+
+    if let Some(jormungandr) = matches.value_of(arg::name::JORMUNGANDR) {
+        runner
+            .override_jormungandr(jormungandr)
+            .chain_err(|| "Cannot override jormungandr binaries")?;
+    }
 
     if daemon {
         runner.spawn().chain_err(|| "Unable to start the node")
