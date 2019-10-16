@@ -7,7 +7,7 @@
 
 ## Installation
 
-Under construction
+See https://input-output-hk.github.io/jorup
 
 ## Usage
 
