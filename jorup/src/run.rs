@@ -4,7 +4,6 @@ use crate::{
 };
 use clap::ArgMatches;
 use jorup_lib::Version;
-use std::path::PathBuf;
 
 pub mod arg {
     use crate::utils::channel::Channel;
