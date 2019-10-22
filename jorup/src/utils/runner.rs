@@ -3,7 +3,7 @@ use jorup_lib::Version;
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
-    process::{Command, ExitStatus, Stdio},
+    process::{Command, Stdio},
 };
 use tokio::prelude::*;
 use tokio_process::CommandExt as _;
