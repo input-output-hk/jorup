@@ -1,4 +1,4 @@
-#[macro_use(crate_name, crate_version, crate_authors, crate_description, values_t)]
+#[macro_use(crate_name, crate_version, crate_authors, crate_description)]
 extern crate clap;
 #[macro_use(error_chain, bail, quick_main)]
 extern crate error_chain;
