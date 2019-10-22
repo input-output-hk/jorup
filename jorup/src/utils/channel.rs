@@ -64,11 +64,11 @@ impl Channel {
                 ChannelVersion::Specific { channel } => jor.entries().get(&channel),
             };
 
-            entry.map(|entry| entry.clone())
+            entry.cloned()
         } else {
             cfg.current_entry()
                 .chain_err(|| "No jorfile... cannot operate")?
-                .map(|entry| entry.clone())
+                .cloned()
         };
 
         if let Some(entry) = entry {

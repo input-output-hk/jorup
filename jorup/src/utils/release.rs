@@ -16,7 +16,7 @@ impl Release {
             .load_jor()
             .unwrap()
             .search_release(req.clone())
-            .map(|c| c.clone())
+            .cloned()
             .ok_or_else(|| format!("No release that matches `{}`", req))?;
 
         let path = cfg.release_dir().join(release.version().to_string());
