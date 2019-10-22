@@ -24,6 +24,7 @@ error_chain! {
 pub fn run<'a>(cfg: HelConfig, matches: &ArgMatches<'a>) -> Result<()> {
     match matches.subcommand() {
         (arg::name::COMMAND_ADD, Some(matches)) => run_add(cfg, matches),
+        (arg::name::COMMAND_RM, Some(matches)) => run_rm(cfg, matches),
         (_, _) => {
             eprintln!("{}", matches.usage());
             Ok(())
@@ -105,6 +106,23 @@ fn run_add<'a>(cfg: HelConfig, matches: &ArgMatches<'a>) -> Result<()> {
 
     jor.add_release(release)
         .chain_err(|| ErrorKind::CannotUpdateRelease)?;
+
+    cfg.save_release_file(jor)
+        .chain_err(|| "error while saving the new entry to release file")
+}
+
+fn run_rm<'a>(cfg: HelConfig, matches: &ArgMatches<'a>) -> Result<()> {
+    let mut jor = cfg
+        .load_release_file()
+        .chain_err(|| ErrorKind::CannotOpenReleaseFile)?;
+
+    let version = matches.value_of(arg::name::RELEASE_NAME).unwrap().parse()?;
+
+    if !jor.releases().contains_key(&version) {
+        bail!("version does not exist")
+    }
+
+    jor.remove_release(&version);
 
     cfg.save_release_file(jor)
         .chain_err(|| "error while saving the new entry to release file")

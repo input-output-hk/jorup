@@ -3,6 +3,7 @@ use clap::{App, Arg, SubCommand};
 pub mod name {
     pub const COMMAND: &str = "release";
     pub const COMMAND_ADD: &str = "add";
+    pub const COMMAND_RM: &str = "rm";
     pub const RELEASE_NAME: &str = "RELEASE";
 }
 
@@ -22,6 +23,7 @@ pub fn command<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name(&name::COMMAND)
         .about("Release operations: add or remove")
         .subcommand(command_add())
+        .subcommand(command_rm())
 }
 
 fn command_add<'a, 'b>() -> App<'a, 'b> {
@@ -31,7 +33,19 @@ fn command_add<'a, 'b>() -> App<'a, 'b> {
             Arg::with_name(name::RELEASE_NAME)
                 .required(true)
                 .value_name(name::RELEASE_NAME)
-                .help("the channel to create")
+                .help("the release to create")
+                .validator(validator::release),
+        )
+}
+
+fn command_rm<'a, 'b>() -> App<'a, 'b> {
+    SubCommand::with_name(name::COMMAND_RM)
+        .about("remove a release")
+        .arg(
+            Arg::with_name(name::RELEASE_NAME)
+                .required(true)
+                .value_name(name::RELEASE_NAME)
+                .help("the release to remove")
                 .validator(validator::release),
         )
 }

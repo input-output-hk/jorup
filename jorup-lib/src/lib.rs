@@ -80,6 +80,10 @@ impl Jor {
             .last()
     }
 
+    pub fn remove_release(&mut self, release: &Version) -> Option<Release> {
+        self.0.releases.remove(release)
+    }
+
     pub fn add_release(&mut self, release: Release) -> Result<()> {
         if let Some(prev) = self.0.releases.insert(release.version().clone(), release) {
             bail!(ErrorKind::ReleaseConflict(prev.version().clone()))
