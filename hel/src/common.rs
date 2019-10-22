@@ -36,7 +36,10 @@ impl HelConfig {
         if version_req.matches(&version) {
             Ok(Command::new(&self.jcli))
         } else {
-            bail!("Invalid jcli version")
+            bail!(format!(
+                "Invalid jcli version, version {} didn't matches {}",
+                version, version_req
+            ))
         }
     }
 
