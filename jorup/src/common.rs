@@ -172,7 +172,7 @@ impl JorupConfig {
     pub fn jorfile(&self) -> PathBuf {
         self.jor_file
             .clone()
-            .unwrap_or(self.home_dir.join("jorfile.json"))
+            .unwrap_or_else(|| self.home_dir.join("jorfile.json"))
     }
     pub fn bin_dir(&self) -> PathBuf {
         self.home_dir.join("bin")
