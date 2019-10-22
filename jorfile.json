@@ -1,0 +1,152 @@
+{
+    "releases": [
+        {
+            "version": "0.6.1",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.1/jormungandr-v0.6.1-x86_64-unknown-linux-musl.tar.gz"
+            }
+        },
+        {
+            "version": "0.6.2",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.2/jormungandr-v0.6.2-x86_64-unknown-linux-musl.tar.gz"
+            }
+        },
+        {
+            "version": "0.6.3",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.3/jormungandr-v0.6.3-x86_64-unknown-linux-musl.tar.gz"
+            }
+        },
+        {
+            "version": "0.6.4",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.4/jormungandr-v0.6.4-x86_64-unknown-linux-musl.tar.gz"
+            }
+        },
+        {
+            "version": "0.6.5",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.6.5/jormungandr-v0.6.5-x86_64-unknown-linux-musl.tar.gz"
+            }
+        },
+        {
+            "version": "0.7.0-alpha.dev",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev/jormungandr-v0.7.0-alpha.dev-x86_64-unknown-linux-musl.tar.gz"
+            }
+        },
+        {
+            "version": "0.7.0-alpha.dev.1",
+            "assets": {
+                "aarch64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-aarch64-unknown-linux-gnu.tar.gz",
+                "arm-unknown-linux-gnueabi": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-arm-unknown-linux-gnueabi.tar.gz",
+                "armv7-unknown-linux-gnueabihf": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-armv7-unknown-linux-gnueabihf.tar.gz",
+                "mips64el-unknown-linux-gnuabi64": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-mips64el-unknown-linux-gnuabi64.tar.gz",
+                "powerpc64le-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-powerpc64le-unknown-linux-gnu.tar.gz",
+                "x86_64-apple-darwin": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-x86_64-apple-darwin.tar.gz",
+                "x86_64-pc-windows-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-x86_64-pc-windows-gnu.zip",
+                "x86_64-pc-windows-msvc": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-x86_64-pc-windows-msvc.zip",
+                "x86_64-unknown-linux-gnu": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-x86_64-unknown-linux-gnu.tar.gz",
+                "x86_64-unknown-linux-musl": "https://github.com/input-output-hk/jormungandr/releases/download/v0.7.0-alpha.dev.1/jormungandr-v0.7.0-alpha.dev.1-x86_64-unknown-linux-musl.tar.gz"
+            }
+        }
+    ],
+    "entries": [
+        {
+            "channel": "0.6.0",
+            "description": "testnet for jormungandr version ^0.6",
+            "disposition": "Up",
+            "jormungandr_versions": "^0.6",
+            "genesis": {
+                "block0_hash": "adbdd5ede31637f6c9bad5c271eec0bc3d0cb9efb86a5b913bb55cba549d0770",
+                "block0": "00520000000002c60000000000000000000000008bff010f0fecffdbc7a842b1a809b3ca27cb348bd95843b78547b00f8120280f000000000000000000000000000000000000000000000000000000000000000000a100000d0088000000005c6faa7e00410200c20002039800000000000003e80000000000000032000000000000271001040000a8c0014102040400015180020800000000000000c8028800000000000000000244000000ff01840000000a02e006f704db16df7a05766d6d18e13ed964a7a256aefba4f290db47da7e1de1515402e0cef9322469a29c0e8baba105541086b83828b67cf493cc61f503f520224ca7840055020002853388872e006dea8322550438f6db36fe12d27d84d81d5fbc6febec154c00258500002d79883d200085a251a5c84c7f536a3a1f9e2f6e6e3a3cc35b36c5e6797ebed34dea32a152da0000002d79883d2000009f050000000000000000000000003c34eb1200000000000000000001000106f704db16df7a05766d6d18e13ed964a7a256aefba4f290db47da7e1de1515400000000000000000000000000000000000000000000000100000000000000002cdc249f02aa9934d5ebadfd2ffd686962175a649c0f7d54db10e7ed3497660a87894eada6beb982d5caa792e8d0e1b800e9dd269f965f3d0afd6d3d7bdac42700000043043388872e006dea8322550438f6db36fe12d27d84d81d5fbc6febec154c002585da2d5f25f4d538b7a2c99ef41d2127444428de19be327282473db763442ad61d0000009f050000000000000000000000003c34eb12000000000000000000010001cef9322469a29c0e8baba105541086b83828b67cf493cc61f503f520224ca784000000000000000000000000000000000000000000000001000000000000000048fd9a117199dde8a812bc4d90f91665dd28f7495620ce96bd5d40f09b046e321ac7e67e37101e65b1566b4e17716fb077ea8fc469b28f4c9810557f1bd4a0d60000004304a251a5c84c7f536a3a1f9e2f6e6e3a3cc35b36c5e6797ebed34dea32a152da0053a1d75955eff9891f72d6ade78b45a9c6ca8e0f7498ef29e8b4fdcb5f13aa940000",
+                "content": "---\nblockchain_configuration:\n  block0_date: 1550822014\n  discrimination: test\n  block0_consensus: genesis_praos\n  consensus_leader_ids:\n    - ed25519_pk1qmmsfkckmaaq2andd5vwz0kevjn6y44wlwj09yxmgld8u80p292qfunk2m\n    - ed25519_pk1emunyfrf52wqazat5yz4gyyxhquz3dnu7jfucc04q06jqgjv57zq8dgsue\n  linear_fees:\n    constant: 1000\n    coefficient: 50\n    certificate: 10000\n  slots_per_epoch: 43200\n  slot_duration: 2\n  kes_update_speed: 86400\n  consensus_genesis_praos_active_slot_coeff: \"0.200\"\n  bft_slots_ratio: \"0.000\"\n  max_number_of_transactions_per_block: 255\n  epoch_stability_depth: 10\n  treasury: ~\n  rewards: ~\ninitial:\n  - fund:\n      - address: ca1s5ec3pewqpk74qez25zr3akmxmlp95nasnvp6haudl47c92vqqjc2avye66\n        value: 50000000000000\n      - address: ca1sk39rfwgf3l4x636r70z7mnw8g7vxkekchn8jl476dx75v4p2tdqq9z8np4\n        value: 50000000000000\n  - cert: cert1qvqqqqqqqqqqqqqqqqqqq0p5avfqqqqqqqqqqqqqqqqsqqgx7uzdk9kl0gzhvmtdrrsnakty5739dthm5nefpk68mflpmc232sqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqqqqqqqqqqqqqtxuyj0s925exn27ht0a9l7ks6tzzadxf8q0042dky88a56fwes2s7y5atdxh6uc94w257fw358phqqwnhfxn7t970g2l4kn6776csns0yz9dk\n  - cert: cert1qyec3pewqpk74qez25zr3akmxmlp95nasnvp6haudl47c92vqqjctk3dtujlf4fck73vn8h5r5sjw3zy9r0pn03jw2pyw0dhvdzz44sadwcshd\n  - cert: cert1qvqqqqqqqqqqqqqqqqqqq0p5avfqqqqqqqqqqqqqqqqsqqwwlyezg6dzns8gh2apq42ppp4c8q5tvl85j0xxragr75szyn98ssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqqqqqqqqqqqqqj8angghrxwaaz5p90zdjru3vewa9rm5j43qe6tt6h2q7zdsgm3jrtr7vl3hzq0xtv2kdd8pwut0kpm74r7ydxeg7nyczp2h7x755rtqyqml0u\n  - cert: cert1qx39rfwgf3l4x636r70z7mnw8g7vxkekchn8jl476dx75v4p2tdqq5ap6av4tmle3y0h944du795t2wxe28q7aycau573d8aed0382558nd73t"
+            },
+            "known_trusted_peers": [
+                {
+                    "address": "/ip4/3.115.194.22/tcp/3000",
+                    "id": "ed25519_pk1npsal4j9p9nlfs0fsmfjyga9uqk5gcslyuvxy6pexxr0j34j83rsf98wl2"
+                },
+                {
+                    "address": "/ip4/13.113.10.64/tcp/3000",
+                    "id": "ed25519_pk16pw2st5wgx4558c6temj8tzv0pqc37qqjpy53fstdyzwxaypveys3qcpfl"
+                },
+                {
+                    "address": "/ip4/52.57.214.174/tcp/3000",
+                    "id": "ed25519_pk1v4cj0edgmp8f2m5gex85jglrs2ruvu4z7xgy8fvhr0ma2lmyhtyszxtejz"
+                },
+                {
+                    "address": "/ip4/3.120.96.93/tcp/3000",
+                    "id": "ed25519_pk10gmg0zkxpuzkghxc39n3a646pdru6xc24rch987cgw7zq5pmytmszjdmvh"
+                },
+                {
+                    "address": "/ip4/52.28.134.8/tcp/3000",
+                    "id": "ed25519_pk1unu66eej6h6uxv4j4e9crfarnm6jknmtx9eknvq5vzsqpq6a9vxqr78xrw"
+                },
+                {
+                    "address": "/ip4/13.52.208.132/tcp/3000",
+                    "id": "ed25519_pk15ppd5xlg6tylamskqkxh4rzum26w9acph8gzg86w4dd9a88qpjms26g5q9"
+                },
+                {
+                    "address": "/ip4/54.153.19.202/tcp/3000",
+                    "id": "ed25519_pk1j9nj2u0amlg28k27pw24hre0vtyp3ge0xhq6h9mxwqeur48u463s0crpfk"
+                }
+            ]
+        }
+    ]
+}
