@@ -1,4 +1,4 @@
-use crate::utils::channel::ChannelVersion;
+use crate::utils::{channel::ChannelVersion, download};
 use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
@@ -198,7 +198,12 @@ impl JorupConfig {
             return Ok(());
         }
 
-        unimplemented!("fetching jor file from the network is not supported yet")
+        download(
+            "jorfile",
+            "https://raw.githubusercontent.com/input-output-hk/jorup/master/jorfile.json",
+            self.jorfile(),
+        )
+        .chain_err(|| "Cannot sync jorfile with registry")
     }
 
     pub fn load_jor(&mut self) -> Result<&jorup_lib::Jor> {
