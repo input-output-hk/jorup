@@ -304,7 +304,7 @@ lazy_static! {
 }
 
 fn jorup_home() -> Result<PathBuf> {
-    home::home_dir()
+    dirs::home_dir()
         .map(|d| d.join(".jorup"))
         .ok_or_else(|| ErrorKind::NoHOMEDir.into())
 }

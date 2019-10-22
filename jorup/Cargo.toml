@@ -13,7 +13,7 @@ error-chain = '0.12'
 console = "0.9"
 indicatif = "0.12"
 dialoguer = "0.4"
-home = "0.5"
+dirs = "2.0"
 jorup-lib = { path = "../jorup-lib" }
 hex = "0.4"
 serde = { version = "1.0", features = ["derive"] }

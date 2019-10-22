@@ -138,7 +138,7 @@ fn get_add_path_methods() -> Vec<PathUpdateMethod> {
         return vec![PathUpdateMethod::Windows];
     }
 
-    let profile = env::home_dir().map(|p| p.join(".profile"));
+    let profile = dirs::home_dir().map(|p| p.join(".profile"));
     let mut profiles = vec![profile];
 
     if let Ok(shell) = env::var("SHELL") {
@@ -146,13 +146,13 @@ fn get_add_path_methods() -> Vec<PathUpdateMethod> {
             let zdotdir = env::var("ZDOTDIR")
                 .ok()
                 .map(PathBuf::from)
-                .or_else(env::home_dir);
+                .or_else(dirs::home_dir);
             let zprofile = zdotdir.map(|p| p.join(".zprofile"));
             profiles.push(zprofile);
         }
     }
 
-    if let Some(bash_profile) = env::home_dir().map(|p| p.join(".bash_profile")) {
+    if let Some(bash_profile) = dirs::home_dir().map(|p| p.join(".bash_profile")) {
         // Only update .bash_profile if it exists because creating .bash_profile
         // will cause .profile to not be read
         if bash_profile.exists() {
