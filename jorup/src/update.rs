@@ -1,6 +1,8 @@
-use crate::{common::JorupConfig, utils::channel::Channel, utils::release::Release};
+use crate::{
+    common::JorupConfig,
+    utils::{channel::Channel, download, release::Release},
+};
 use clap::ArgMatches;
-use curl::easy::Easy;
 use jorup_lib::Version;
 
 pub mod arg {
@@ -53,53 +55,13 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
         .chain_err(|| ErrorKind::Release(release.version().clone()))?;
 
     if release.asset_need_fetched() && !cfg.offline() {
-        let progress = indicatif::ProgressBar::new(100).with_style(
-            indicatif::ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {msg} {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
-        );
-        progress.set_message(&release.get_asset().display().to_string());
-
-        let mut handle = Easy::new();
-        handle.url(asset.as_ref()).unwrap();
-        handle.progress(true).unwrap();
-        let finalizer = progress.clone();
-        handle
-            .progress_function(move |total, so_far, _, _| {
-                let total = total.floor() as u64;
-                let so_far = so_far.floor() as u64;
-                if total != 0 {
-                    progress.set_length(total);
-                    progress.set_position(so_far);
-                }
-                true
-            })
-            .unwrap();
-        handle.follow_location(true).unwrap();
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(release.get_asset())
-            .chain_err(|| format!("cannot create file `{}`", release.get_asset().display()))?;
-
-        let res = {
-            let mut transfers = handle.transfer();
-            transfers
-                .write_function(|data| {
-                    use std::io::Write as _;
-                    file.write_all(&data).unwrap();
-                    Ok(data.len())
-                })
-                .unwrap();
-            transfers.perform()
-        };
-
-        if let Err(err) = res {
-            finalizer.finish_at_current_pos();
-            eprintln!("cannot download asset: {}", err);
-        } else {
-            finalizer.finish_and_clear();
-            println!("**** asset downloaded");
-        }
+        download(
+            &release.get_asset().display().to_string(),
+            &asset.as_ref(),
+            release.get_asset(),
+        )
+        .chain_err(|| "Cannot download and install update")?;
+        println!("**** asset downloaded");
     }
 
     release
