@@ -29,14 +29,6 @@ mod validator {
             .map(|_version| ())
             .map_err(|err| err.to_string())
     }
-
-    pub fn address(arg: String) -> Result<(), String> {
-        use poldercast::Address;
-
-        Address::from_str(&arg)
-            .map(|_addr| ())
-            .map_err(|err| err.to_string())
-    }
 }
 
 pub fn command<'a, 'b>() -> App<'a, 'b> {
