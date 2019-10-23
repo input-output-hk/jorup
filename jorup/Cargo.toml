@@ -1,6 +1,6 @@
 [package]
 name = "jorup"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Nicolas Di Prima <nicolas.diprima@iohk.io>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
