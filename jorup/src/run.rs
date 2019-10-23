@@ -13,6 +13,7 @@ pub mod arg {
         pub const COMMAND: &str = "run";
         pub const DAEMON: &str = "DAEMON";
         pub const JORMUNGANDR: &str = "JORMUNGANDR";
+        pub const JORMUNGANDR_COMMANDS: &str = "JORMUNGANDR_ADDITIONAL_OPTIONS";
     }
 
     pub fn command<'a, 'b>() -> App<'a, 'b> {
@@ -31,6 +32,17 @@ pub mod arg {
                     .value_name("PATH")
                     .help("use this specified binary as executable")
                     .hidden(true),
+            )
+            .arg(
+                Arg::with_name(name::JORMUNGANDR_COMMANDS)
+                    .last(true)
+                    .help("extra parameters to pass on to the node")
+                    .long_help(
+                        r#"Add pass on extra parameters to jormungandr
+for example, this command allows to change the default REST listen address, or
+to use a specific log formatting or output"#,
+                    )
+                    .multiple(true),
             )
     }
 }
@@ -57,6 +69,11 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
     let release = Release::new(&mut cfg, channel.jormungandr_version_req())
         .chain_err(|| "Cannot run without compatible release")?;
 
+    let extra_options: Vec<_> = matches
+        .values_of(arg::name::JORMUNGANDR_COMMANDS)
+        .map(|c| c.collect())
+        .unwrap_or_default();
+
     if release.asset_need_fetched() {
         // asset release is not available
         bail!(
@@ -79,8 +96,12 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
     }
 
     if daemon {
-        runner.spawn().chain_err(|| "Unable to start the node")
+        runner
+            .spawn(&extra_options)
+            .chain_err(|| "Unable to start the node")
     } else {
-        runner.run().chain_err(|| "Unable to start the node")
+        runner
+            .run(&extra_options)
+            .chain_err(|| "Unable to start the node")
     }
 }

@@ -191,8 +191,9 @@ rest:
         Ok(cmd)
     }
 
-    pub fn spawn(&mut self) -> Result<()> {
+    pub fn spawn(&mut self, parameters: &[&str]) -> Result<()> {
         let mut cmd = self.prepare()?;
+        cmd.args(parameters);
 
         cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::null());
@@ -220,8 +221,9 @@ rest:
         Ok(())
     }
 
-    pub fn run(mut self) -> Result<()> {
+    pub fn run(mut self, parameters: &[&str]) -> Result<()> {
         let mut cmd = self.prepare()?;
+        cmd.args(parameters);
         let child = cmd.spawn_async().chain_err(|| "Cannot start jormungandr")?;
 
         tokio::run(
