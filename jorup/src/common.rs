@@ -1,5 +1,6 @@
-use crate::utils::{channel::ChannelVersion, download};
+use crate::utils::download;
 use clap::ArgMatches;
+use jorup_lib::PartialChannelDesc;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
 
@@ -16,7 +17,7 @@ pub struct JorupConfig {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JorupSettings {
-    default: ChannelVersion,
+    default: PartialChannelDesc,
 }
 
 error_chain! {
@@ -121,7 +122,7 @@ impl JorupConfig {
         &self.settings
     }
 
-    pub fn current_channel(&self) -> &ChannelVersion {
+    pub fn current_channel(&self) -> &PartialChannelDesc {
         &self.settings().default
     }
 
@@ -135,11 +136,11 @@ impl JorupConfig {
             .unwrap()
             .entries()
             .values()
-            .filter(|entry| current_default.is_nightly() == entry.channel().is_nightly())
+            .filter(|entry| current_default.matches(entry.channel()))
             .last())
     }
 
-    pub fn set_default_channel(&mut self, new_default: ChannelVersion) -> Result<()> {
+    pub fn set_default_channel(&mut self, new_default: PartialChannelDesc) -> Result<()> {
         self.settings.default = new_default;
         self.save_settings()
     }
@@ -223,7 +224,7 @@ impl JorupConfig {
 impl Default for JorupSettings {
     fn default() -> Self {
         JorupSettings {
-            default: ChannelVersion::Stable,
+            default: PartialChannelDesc::default(),
         }
     }
 }

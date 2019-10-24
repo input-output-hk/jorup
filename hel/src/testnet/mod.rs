@@ -2,7 +2,10 @@ pub mod arg;
 use crate::common::HelConfig;
 use clap::ArgMatches;
 use dialoguer::{Input, Validator};
-use jorup_lib::{ChannelError, ChannelErrorKind, Disposition, EntryBuilder, Genesis, VersionReq};
+use jorup_lib::{
+    ChannelError, ChannelErrorKind, Disposition, EntryBuilder, Genesis, PartialChannelDesc,
+    VersionReq,
+};
 use std::process::Stdio;
 
 #[derive(Clone, Copy)]
@@ -49,7 +52,8 @@ fn run_add<'a>(cfg: HelConfig, matches: &ArgMatches<'a>) -> Result<()> {
         .load_release_file()
         .chain_err(|| ErrorKind::CannotOpenReleaseFile)?;
 
-    let channel = matches.value_of(arg::name::CHANNEL_NAME).unwrap().parse()?;
+    let channel: PartialChannelDesc = matches.value_of(arg::name::CHANNEL_NAME).unwrap().parse()?;
+    let channel = channel.into_channel_desc();
 
     if jor.entries().contains_key(&channel) {
         bail!("channel already exist")

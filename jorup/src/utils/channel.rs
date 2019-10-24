@@ -1,33 +1,15 @@
 use crate::common::JorupConfig;
 use error_chain::ChainedError as _;
-use jorup_lib::VersionReq;
-use serde::{Deserialize, Serialize};
+use jorup_lib::{PartialChannelDesc, VersionReq};
 use std::path::{Path, PathBuf};
 
 error_chain! {}
 
-#[derive(Debug, Clone)]
-pub enum ChannelVersion {
-    Stable,
-    Nightly,
-    Specific { channel: jorup_lib::Channel },
-}
-
 pub struct Channel {
     entry: jorup_lib::Entry,
-    version: ChannelVersion,
+    version: PartialChannelDesc,
 
     path: PathBuf,
-}
-
-impl ChannelVersion {
-    pub fn is_nightly(&self) -> bool {
-        match self {
-            Self::Nightly => true,
-            Self::Stable => false,
-            Self::Specific { channel } => channel.is_nightly(),
-        }
-    }
 }
 
 const CHANNEL_NAME: &str = "CHANNEL_NAME";
@@ -41,7 +23,7 @@ impl Channel {
             .value_name("CHANNEL")
             .help("The channel to run jormungandr for, jorup uses the default channel otherwise")
             .validator(|s: String| {
-                s.parse::<ChannelVersion>()
+                s.parse::<PartialChannelDesc>()
                     .map(|_channel| ())
                     .map_err(|err| err.display_chain().to_string())
             })
@@ -58,13 +40,12 @@ impl Channel {
             // should be save to unwrap as we have set a validator in the Argument
             // for the CLI to check it is valid
             channel_entered = channel.parse().unwrap();
-            let entry = match channel.parse().unwrap() {
-                ChannelVersion::Nightly => jor.search_entry(true, VersionReq::any()),
-                ChannelVersion::Stable => jor.search_entry(false, VersionReq::any()),
-                ChannelVersion::Specific { channel } => jor.entries().get(&channel),
-            };
 
-            entry.cloned()
+            jor.entries()
+                .values()
+                .filter(|entry| channel_entered.matches(entry.channel()))
+                .last()
+                .cloned()
         } else {
             cfg.current_entry()
                 .chain_err(|| "No jorfile... cannot operate")?
@@ -81,17 +62,12 @@ impl Channel {
     fn new(
         cfg: &JorupConfig,
         entry: jorup_lib::Entry,
-        channel_version: ChannelVersion,
+        channel_version: PartialChannelDesc,
     ) -> Result<Self> {
         let path = cfg
             .channel_dir()
-            .join(entry.channel().channel())
-            .join(entry.channel().version().to_string());
-        let path = if let Some(date) = entry.channel().nightly_date() {
-            path.join(date)
-        } else {
-            path
-        };
+            .join(entry.channel().channel().to_string())
+            .join(entry.channel().date().to_string());
         std::fs::create_dir_all(&path)
             .chain_err(|| format!("Error while creating directory '{}'", path.display()))?;
         Ok(Channel {
@@ -101,7 +77,7 @@ impl Channel {
         })
     }
 
-    pub fn channel_version(&self) -> &ChannelVersion {
+    pub fn channel_version(&self) -> &PartialChannelDesc {
         &self.version
     }
 
@@ -178,48 +154,6 @@ impl Channel {
 
     pub fn dir(&self) -> &PathBuf {
         &self.path
-    }
-}
-
-impl std::str::FromStr for ChannelVersion {
-    type Err = <jorup_lib::Channel as std::str::FromStr>::Err;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "stable" => Ok(ChannelVersion::Stable),
-            "nightly" => Ok(ChannelVersion::Nightly),
-            s => Ok(ChannelVersion::Specific {
-                channel: s.parse()?,
-            }),
-        }
-    }
-}
-impl std::fmt::Display for ChannelVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            ChannelVersion::Stable => "stable".fmt(f),
-            ChannelVersion::Nightly => "nightly".fmt(f),
-            ChannelVersion::Specific { channel } => channel.fmt(f),
-        }
-    }
-}
-
-impl Serialize for ChannelVersion {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::ser::Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
-    }
-}
-
-impl<'de> Deserialize<'de> for ChannelVersion {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        use serde::de::Error as _;
-        let s = String::deserialize(deserializer)?;
-        s.parse().map_err(D::Error::custom)
     }
 }
 

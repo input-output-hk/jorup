@@ -16,7 +16,8 @@ pub use jormungandr::{Release, ReleaseBuilder, Url, UrlBuilder, AVAILABLE_PLATFO
 pub use platforms::Platform;
 pub use semver::{Version, VersionReq};
 pub use testnet::{
-    Channel, ChannelError, ChannelErrorKind, Disposition, Entry, EntryBuilder, Genesis, TrustedPeer,
+    Channel, ChannelDesc, ChannelError, ChannelErrorKind, Date, Disposition, Entry, EntryBuilder,
+    Genesis, PartialChannelDesc, TrustedPeer,
 };
 
 error_chain! {
@@ -26,7 +27,7 @@ error_chain! {
             display("Version '{}' already exists", previous_release),
         }
 
-        EntryConflict (previous_channel: Channel) {
+        EntryConflict (previous_channel: ChannelDesc) {
             description("Entry already exists"),
             display("Channel '{}' already exists", previous_channel),
         }
@@ -40,7 +41,7 @@ error_chain! {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(remote = "JorData")]
-pub struct JorDataDef {
+struct JorDataDef {
     #[serde(getter = "JorData::releases")]
     releases: Vec<Release>,
     #[serde(getter = "JorData::entries")]
@@ -50,7 +51,7 @@ pub struct JorDataDef {
 #[derive(Debug)]
 pub struct JorData {
     releases: BTreeMap<Version, Release>,
-    entries: BTreeMap<Channel, Entry>,
+    entries: BTreeMap<ChannelDesc, Entry>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,7 +62,7 @@ impl Jor {
         &self.0.releases
     }
 
-    pub fn entries(&self) -> &BTreeMap<Channel, Entry> {
+    pub fn entries(&self) -> &BTreeMap<ChannelDesc, Entry> {
         &self.0.entries
     }
 
@@ -72,11 +73,11 @@ impl Jor {
             .last()
     }
 
-    pub fn search_entry(&self, nightly: bool, version_req: VersionReq) -> Option<&Entry> {
+    pub fn search_entry(&self, nightly: bool, version_req: PartialChannelDesc) -> Option<&Entry> {
         self.entries()
             .values()
             .filter(|entry| entry.channel().is_nightly() == nightly)
-            .filter(|entry| version_req.matches(entry.channel().version()))
+            .filter(|entry| version_req.matches(entry.channel()))
             .last()
     }
 

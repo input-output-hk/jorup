@@ -17,14 +17,21 @@ be used to follow up with the appropriate installation for a given `Channel`.
 
 ### `Channel`
 
-a `Channel` is a possible testnet parameter. There are currently only 2 different
-kind of `channels`: `stable` or `nightly`.
+a `Channel` is a possible testnet parameter. There are currently only 3 different
+kind of `channels`: `stable`, `beta` or `nightly`.
 
-* `nightly` are likely to break or to be deprecated so it is not recommended to
-  host them for long or to have long plans on them. Instead they are meant for
-  testing early features, specific blockchain parameters or a given version of
-  the node.
-* `stable` are... _not yet defined_.
+* `stable` does not exist yet...
+* `beta` is the long running testnet.
+* `nightly` is a short life testnet that is meant for the dev and the community
+  to try out new features, experiment on some bugs and issues.
+
+A channel has the following form:
+
+```
+channel := <channel-name> [ - <date> ]
+channel-name := stable | beta | nightly
+date := YYYY-MM-DD
+```
 
 ### Updating the local installation
 
@@ -38,7 +45,7 @@ options:
 * `jorup update nightly`: will update to the latest version of nightly available
   (i.e. it may change to a new version of the blockchain), and will update to the
   latest release available compatible with this `channel`.
-* `jorup update '0.5.5-nightly (2019-10-04)' will not update to a new default channel
+* `jorup update 'nightly-2019-10-04'` will not update to a new default channel
   but will instead only update that specific version of a the `nightly` channel.
 
 To make a default `channel` the default, simply add the command line parameter `--default`.
@@ -49,6 +56,8 @@ To make a default `channel` the default, simply add the command line parameter `
 
 will start the default node. Specify the `channel` you want to start if you want to start
 another channel than the default.
+
+```jorup run beta```
 
 If you want to start the node in the background, simply add `--daemon`.
 

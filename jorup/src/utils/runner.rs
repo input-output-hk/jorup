@@ -165,13 +165,15 @@ rest:
 
         cmd.current_dir(channel.dir());
 
+        let genesis_block_hash = std::fs::read_to_string(channel.get_genesis_block_hash()).unwrap();
+
         cmd.args(&[
             "--storage",
             channel.get_node_storage().display().to_string().as_str(),
             "--config",
             channel.get_node_config().display().to_string().as_str(),
-            "--genesis-block",
-            channel.get_genesis_block().display().to_string().as_str(),
+            "--genesis-block-hash",
+            &genesis_block_hash,
         ]);
 
         for peer in channel.entry().known_trusted_peers() {

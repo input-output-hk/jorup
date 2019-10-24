@@ -13,11 +13,11 @@ pub mod name {
 mod validator {
     use std::str::FromStr as _;
 
-    pub fn channel(arg: String) -> Result<(), String> {
+    pub fn partial_channel_desc(arg: String) -> Result<(), String> {
         use error_chain::ChainedError as _;
-        use jorup_lib::Channel;
+        use jorup_lib::PartialChannelDesc;
 
-        Channel::from_str(&arg)
+        PartialChannelDesc::from_str(&arg)
             .map(|_channel| ())
             .map_err(|err| err.display_chain().to_string())
     }
@@ -45,7 +45,7 @@ fn command_add<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
                 .value_name(name::CHANNEL_NAME)
                 .help("the channel to create")
-                .validator(validator::channel),
+                .validator(validator::partial_channel_desc),
         )
         .arg(
             Arg::with_name(name::VERSION_REQ)

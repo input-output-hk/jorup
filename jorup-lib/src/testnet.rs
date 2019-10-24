@@ -1,5 +1,4 @@
-use chrono::{Date, Utc};
-use semver::{Version, VersionReq};
+use semver::VersionReq;
 use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 use std::{fmt, str};
 
@@ -7,7 +6,7 @@ use std::{fmt, str};
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Entry {
     /// the testnet entry channel
-    channel: Channel,
+    channel: ChannelDesc,
     /// description (optional, can be empty)
     description: String,
     /// set the disposition of a given testnet status
@@ -23,7 +22,7 @@ pub struct Entry {
 }
 
 pub struct EntryBuilder {
-    channel: Option<Channel>,
+    channel: Option<ChannelDesc>,
     description: Option<String>,
     disposition: Option<Disposition>,
     jormungandr_versions: Option<VersionReq>,
@@ -50,20 +49,33 @@ pub struct Genesis {
     pub content: String,
 }
 
-/// a channel:
-///
-/// * **stable**: `v0.1.2` for example
-/// * **nightly**: `v0.1.2-nightly (2019-09-02)`
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Channel {
-    Stable { version: Version },
-    Nightly { version: Version, date: Date<Utc> },
+    Stable,
+    Beta,
+    Nightly,
 }
 
-const CHANNEL_DATE_FORMAT: &str = " (%F)";
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PartialChannelDesc {
+    channel: Channel,
+    date: Option<Date>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ChannelDesc {
+    channel: Channel,
+    date: Date,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Date(chrono::Date<chrono::Utc>);
+
+const CHANNEL_DATE_FORMAT: &str = "%F";
 
 impl EntryBuilder {
-    pub fn channel(&mut self, channel: Channel) -> &mut Self {
+    pub fn channel(&mut self, channel: ChannelDesc) -> &mut Self {
         self.channel = Some(channel);
         self
     }
@@ -124,7 +136,7 @@ impl EntryBuilder {
 }
 
 impl Entry {
-    pub fn channel(&self) -> &Channel {
+    pub fn channel(&self) -> &ChannelDesc {
         &self.channel
     }
 
@@ -169,41 +181,73 @@ impl Genesis {
     }
 }
 
-impl Channel {
-    pub fn channel(&self) -> &str {
-        match self {
-            Self::Nightly { .. } => "nightly",
-            Self::Stable { .. } => "stable",
+impl Date {
+    fn today() -> Self {
+        Date(chrono::Utc::today())
+    }
+}
+
+impl PartialChannelDesc {
+    pub fn channel(&self) -> &Channel {
+        &self.channel
+    }
+
+    pub fn date(&self) -> Option<&Date> {
+        self.date.as_ref()
+    }
+
+    pub fn matches(&self, channel_desc: &ChannelDesc) -> bool {
+        if self.channel() == channel_desc.channel() {
+            if let Some(date) = self.date() {
+                date == channel_desc.date()
+            } else {
+                true
+            }
+        } else {
+            false
         }
     }
 
-    pub fn version(&self) -> &Version {
-        match self {
-            Self::Stable { version } => version,
-            Self::Nightly { version, .. } => version,
-        }
+    pub fn into_channel_desc(self) -> ChannelDesc {
+        let channel = self.channel;
+        let date = self.date.unwrap_or_else(|| Date::today());
+
+        ChannelDesc { channel, date }
+    }
+}
+
+impl ChannelDesc {
+    pub fn channel(&self) -> &Channel {
+        &self.channel
+    }
+
+    pub fn date(&self) -> &Date {
+        &self.date
     }
 
     pub fn is_nightly(&self) -> bool {
-        match self {
-            Self::Nightly { .. } => true,
-            Self::Stable { .. } => false,
-        }
+        self.channel() == &Channel::Nightly
     }
 
-    pub fn is_stabler(&self) -> bool {
-        !self.is_nightly()
+    pub fn is_beta(&self) -> bool {
+        self.channel() == &Channel::Beta
     }
 
-    pub fn nightly_date(&self) -> Option<String> {
-        match self {
-            Self::Stable { .. } => None,
-            Self::Nightly { date, .. } => Some(date.format("%F").to_string()),
-        }
+    pub fn is_stable(&self) -> bool {
+        self.channel() == &Channel::Stable
     }
 }
 
 /* *********************** Default ***************************************** */
+
+impl Default for PartialChannelDesc {
+    fn default() -> Self {
+        PartialChannelDesc {
+            channel: Channel::Stable,
+            date: None,
+        }
+    }
+}
 
 impl Default for EntryBuilder {
     fn default() -> EntryBuilder {
@@ -220,14 +264,37 @@ impl Default for EntryBuilder {
 
 /* *********************** Display ***************************************** */
 
+impl fmt::Display for Date {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0.format(CHANNEL_DATE_FORMAT))
+    }
+}
+
 impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Channel::Stable { version } => version.fmt(f),
-            Channel::Nightly { version, date } => {
-                write!(f, "{}-nightly{}", version, date.format(CHANNEL_DATE_FORMAT))
-            }
+            Channel::Stable => "stable".fmt(f),
+            Channel::Beta => "beta".fmt(f),
+            Channel::Nightly => "nightly".fmt(f),
         }
+    }
+}
+
+impl fmt::Display for ChannelDesc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}-{}", self.channel(), self.date)
+    }
+}
+
+impl fmt::Display for PartialChannelDesc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.channel())?;
+
+        if let Some(date) = self.date() {
+            write!(f, "-{}", date)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -239,65 +306,83 @@ error_chain! {
     }
 
     errors {
-        MissingVersionComponentOfVersion( s: String ) {
-            description("Missing version component of the channel")
-            display("Value '{}' is not a valid channel, missing version component", s)
-        }
-
-        InvalidVersion(s: String) {
-            description("Invalid version component format")
-            display("Value '{}' is not a valid channel, invalid version component", s)
-        }
-
         InvalidDate(s: String) {
             description("Invalid date component format")
-            display("Value '{}' is not a valid channel, invalid date component", s)
+            display("Value '{}' is not a valid date, invalid date component", s)
         }
+    }
+}
 
-        InvalidChannelFormat(s: String) {
-            description("Invalid channel format, too many '-nightly-'"),
-            display("Value {} is not a valid channel format, too many '-nightly-'", s),
+impl str::FromStr for PartialChannelDesc {
+    type Err = ChannelError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(i) = s.find('-') {
+            let channel = s[..i].parse()?;
+            let date = Some(s[i + 1..].parse()?);
+            Ok(PartialChannelDesc { channel, date })
+        } else {
+            let channel = s.parse()?;
+            let date = None;
+            Ok(PartialChannelDesc { channel, date })
         }
+    }
+}
+
+impl str::FromStr for Date {
+    type Err = ChannelError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        chrono::naive::NaiveDate::parse_from_str(&s, CHANNEL_DATE_FORMAT)
+            .chain_err(|| ChannelErrorKind::InvalidDate(s.to_owned()))
+            .map(|date| chrono::Date::<chrono::Utc>::from_utc(date, chrono::Utc))
+            .map(Date)
     }
 }
 
 impl str::FromStr for Channel {
     type Err = ChannelError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut sp = s.split("-nightly").filter(|s| !s.is_empty());
-
-        let version = if let Some(s) = sp.next() {
-            s.parse()
-                .chain_err(|| ChannelErrorKind::InvalidVersion(s.to_owned()))?
+        if s == "stable" {
+            Ok(Channel::Stable)
+        } else if s == "beta" {
+            Ok(Channel::Beta)
+        } else if s == "nightly" {
+            Ok(Channel::Nightly)
         } else {
-            bail!(ChannelErrorKind::MissingVersionComponentOfVersion(
-                s.to_string()
-            ))
-        };
-
-        if let Some(s) = sp.next() {
-            if sp.count() > 0 {
-                bail!(ChannelErrorKind::InvalidChannelFormat(s.to_owned()))
-            }
-
-            chrono::naive::NaiveDate::parse_from_str(s, CHANNEL_DATE_FORMAT)
-                .chain_err(|| ChannelErrorKind::InvalidDate(s.to_owned()))
-                .map(|date| Date::<Utc>::from_utc(date, Utc))
-                .map(|date| Channel::Nightly { version, date })
-        } else if s.ends_with("-nightly") {
-            Ok(Channel::Nightly {
-                version,
-                date: Utc::today(),
-            })
-        } else {
-            Ok(Channel::Stable { version })
+            bail!(format!("Invalid channel: {}", s))
         }
     }
 }
 
 /* *********************** Serde ******************************************* */
 
-impl Serialize for Channel {
+impl Serialize for Date {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0
+            .format(CHANNEL_DATE_FORMAT)
+            .to_string()
+            .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Date {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+        let s = String::deserialize(deserializer)?;
+        chrono::naive::NaiveDate::parse_from_str(&s, CHANNEL_DATE_FORMAT)
+            .chain_err(|| format!("Invalid date: {}", s))
+            .map_err(D::Error::custom)
+            .map(|date| chrono::Date::<chrono::Utc>::from_utc(date, chrono::Utc))
+            .map(Date)
+    }
+}
+
+impl Serialize for PartialChannelDesc {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -306,14 +391,14 @@ impl Serialize for Channel {
     }
 }
 
-impl<'de> Deserialize<'de> for Channel {
+impl<'de> Deserialize<'de> for PartialChannelDesc {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         use serde::de::Error as _;
         let s = String::deserialize(deserializer)?;
-        s.parse().map_err(D::Error::custom)
+        s.parse::<PartialChannelDesc>().map_err(D::Error::custom)
     }
 }
 
@@ -324,20 +409,48 @@ mod test {
 
     impl Arbitrary for Channel {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let version = Version::new(u64::arbitrary(g), u64::arbitrary(g), u64::arbitrary(g));
-
-            if bool::arbitrary(g) && false {
-                Channel::Stable { version }
-            } else {
-                let date = Utc::today();
-
-                Channel::Nightly { version, date }
+            match u8::arbitrary(g) % 3 {
+                0 => Channel::Stable,
+                1 => Channel::Beta,
+                _ => Channel::Nightly,
             }
         }
     }
 
-    fn unit(s: &str, expected: Channel) {
-        let decoded: Channel = s.parse().unwrap();
+    impl Arbitrary for Date {
+        fn arbitrary<G: Gen>(_g: &mut G) -> Self {
+            Date(chrono::Utc::now().date())
+        }
+    }
+
+    impl Arbitrary for ChannelDesc {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            ChannelDesc {
+                channel: Channel::arbitrary(g),
+                date: Date::arbitrary(g),
+            }
+        }
+    }
+
+    impl Arbitrary for PartialChannelDesc {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            PartialChannelDesc {
+                channel: Channel::arbitrary(g),
+                date: if bool::arbitrary(g) {
+                    Some(Date::arbitrary(g))
+                } else {
+                    None
+                },
+            }
+        }
+    }
+
+    fn unit_from_str<T>(s: &str, expected: T)
+    where
+        T: str::FromStr + Eq + fmt::Debug,
+        <T as str::FromStr>::Err: fmt::Debug,
+    {
+        let decoded: T = s.parse().unwrap();
 
         assert_eq!(
             expected, decoded,
@@ -347,25 +460,84 @@ mod test {
     }
 
     #[test]
-    fn units() {
-        unit(
-            "0.1.2",
-            Channel::Stable {
-                version: Version::new(0, 1, 2),
+    fn channel_units() {
+        unit_from_str("stable", Channel::Stable);
+        unit_from_str("beta", Channel::Beta);
+        unit_from_str("nightly", Channel::Nightly);
+    }
+
+    #[test]
+    fn date_units() {
+        use chrono::{NaiveDate, Utc};
+        unit_from_str(
+            "1920-10-14",
+            Date(chrono::Date::from_utc(
+                NaiveDate::from_ymd(1920, 10, 14),
+                Utc,
+            )),
+        );
+        unit_from_str(
+            "2019-02-24",
+            Date(chrono::Date::from_utc(
+                NaiveDate::from_ymd(2019, 02, 24),
+                Utc,
+            )),
+        );
+    }
+
+    #[test]
+    fn partial_channel_desc_units() {
+        use chrono::{NaiveDate, Utc};
+        unit_from_str(
+            "stable",
+            PartialChannelDesc {
+                channel: Channel::Stable,
+                date: None,
             },
         );
-        unit(
-            "0.1.2-nightly",
-            Channel::Nightly {
-                version: Version::new(0, 1, 2),
-                date: Utc::today(),
+        unit_from_str(
+            "beta",
+            PartialChannelDesc {
+                channel: Channel::Beta,
+                date: None,
             },
         );
-        unit(
-            &format!("0.1.2-nightly{}", Utc::today().format(CHANNEL_DATE_FORMAT)),
-            Channel::Nightly {
-                version: Version::new(0, 1, 2),
-                date: Utc::today(),
+        unit_from_str(
+            "nightly",
+            PartialChannelDesc {
+                channel: Channel::Nightly,
+                date: None,
+            },
+        );
+
+        unit_from_str(
+            "stable-1979-12-10",
+            PartialChannelDesc {
+                channel: Channel::Stable,
+                date: Some(Date(chrono::Date::from_utc(
+                    NaiveDate::from_ymd(1979, 12, 10),
+                    Utc,
+                ))),
+            },
+        );
+        unit_from_str(
+            "beta-2000-01-01",
+            PartialChannelDesc {
+                channel: Channel::Beta,
+                date: Some(Date(chrono::Date::from_utc(
+                    NaiveDate::from_ymd(2000, 01, 01),
+                    Utc,
+                ))),
+            },
+        );
+        unit_from_str(
+            "nightly-2021-08-31",
+            PartialChannelDesc {
+                channel: Channel::Nightly,
+                date: Some(Date(chrono::Date::from_utc(
+                    NaiveDate::from_ymd(2021, 08, 31),
+                    Utc,
+                ))),
             },
         );
     }
@@ -384,5 +556,37 @@ mod test {
         let decoded: Channel = encoded.parse().unwrap();
 
         channel == decoded
+    }
+
+    #[quickcheck]
+    fn date_serde_json(date: Date) -> bool {
+        let encoded = serde_json::to_string(&date).unwrap();
+        let decoded: Date = serde_json::from_str(&encoded).unwrap();
+
+        date == decoded
+    }
+
+    #[quickcheck]
+    fn date_display_from_str(date: Date) -> bool {
+        let encoded = date.to_string();
+        let decoded: Date = encoded.parse().unwrap();
+
+        date == decoded
+    }
+
+    #[quickcheck]
+    fn channel_desc_serde_json(channel_desc: ChannelDesc) -> bool {
+        let encoded = serde_json::to_string(&channel_desc).unwrap();
+        let decoded: ChannelDesc = serde_json::from_str(&encoded).unwrap();
+
+        channel_desc == decoded
+    }
+
+    #[quickcheck]
+    fn partial_channel_desc_display_from_str(partial_channel_desc: PartialChannelDesc) -> bool {
+        let encoded = partial_channel_desc.to_string();
+        let decoded: PartialChannelDesc = encoded.parse().unwrap();
+
+        partial_channel_desc == decoded
     }
 }
