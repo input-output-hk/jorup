@@ -82,23 +82,7 @@ impl Channel {
     }
 
     pub fn prepare(&self) -> Result<()> {
-        self.install_genesis_file()?;
-        self.install_block0()?;
         self.install_block0_hash()
-    }
-
-    fn install_genesis_file(&self) -> Result<()> {
-        let path = self.get_genesis();
-        let content = self.entry().genesis().content().as_bytes();
-
-        write_all_to(&path, content).chain_err(|| format!("with file {}", path.display()))
-    }
-
-    fn install_block0(&self) -> Result<()> {
-        let path = self.get_genesis_block();
-        let content = hex::decode(self.entry().genesis().block0()).unwrap();
-
-        write_all_to(&path, content).chain_err(|| format!("with file {}", path.display()))
     }
 
     fn install_block0_hash(&self) -> Result<()> {
@@ -122,14 +106,6 @@ impl Channel {
 
     pub fn get_runner_file(&self) -> PathBuf {
         self.dir().join("running_config.toml")
-    }
-
-    pub fn get_genesis(&self) -> PathBuf {
-        self.dir().join("genesis.yaml")
-    }
-
-    pub fn get_genesis_block(&self) -> PathBuf {
-        self.dir().join("genesis.block")
     }
 
     pub fn get_genesis_block_hash(&self) -> PathBuf {
