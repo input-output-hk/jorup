@@ -154,8 +154,6 @@ fn run_add<'a>(cfg: HelConfig, matches: &ArgMatches<'a>) -> Result<()> {
 
     let genesis = Genesis {
         block0_hash: block0_hash.trim_end().to_owned(),
-        block0: hex::encode(block0),
-        content: genesis_data,
     };
 
     entry_builder.genesis(genesis);

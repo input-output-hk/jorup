@@ -45,8 +45,6 @@ pub enum Disposition {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Genesis {
     pub block0_hash: String,
-    pub block0: String,
-    pub content: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -170,14 +168,6 @@ impl Genesis {
     /// Block0 hash, in hexadecimal
     pub fn block0_hash(&self) -> &str {
         &self.block0_hash
-    }
-    /// Block0 in hexadecimal
-    pub fn block0(&self) -> &str {
-        &self.block0
-    }
-    /// block0 content genesis file
-    pub fn content(&self) -> &str {
-        &self.content
     }
 }
 
