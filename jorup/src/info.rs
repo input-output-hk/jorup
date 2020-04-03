@@ -48,10 +48,6 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
         );
     }
 
-    release
-        .asset_open()
-        .chain_err(|| ErrorKind::Release(release.version().clone()))?;
-
     let mut runner = RunnerControl::new(&channel, &release)
         .chain_err(|| "Unable to start the runner controller")?;
 
