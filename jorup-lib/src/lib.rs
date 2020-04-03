@@ -6,12 +6,14 @@ extern crate quickcheck_macros;
 #[macro_use(error_chain, bail)]
 extern crate error_chain;
 
+mod download;
 mod jormungandr;
 mod testnet;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+pub use download::download;
 pub use jormungandr::{Release, ReleaseBuilder, Url, UrlBuilder, AVAILABLE_PLATFORMS};
 pub use platforms::Platform;
 pub use semver::{Version, VersionReq};

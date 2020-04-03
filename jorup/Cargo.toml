@@ -11,7 +11,6 @@ homepage = "https://github.com/input-output-hk/jorup#README.md"
 [dependencies]
 error-chain = '0.12'
 console = "0.9"
-indicatif = "0.12"
 dialoguer = "0.4"
 dirs = "2.0"
 jorup-lib = { path = "../jorup-lib" }
@@ -22,7 +21,6 @@ toml = "0.5"
 platforms = "0.2"
 clap = "2.33"
 lazy_static = "1.4"
-curl = "0.4"
 tokio = "0.1"
 tokio-process = "0.2"
 tar = { version = "0.4", default-features = false }
