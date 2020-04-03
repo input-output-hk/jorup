@@ -1,6 +1,6 @@
 use crate::common::JorupConfig;
 use jorup_lib::{Version, VersionReq};
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf};
 
 error_chain! {}
 
@@ -52,7 +52,7 @@ impl Release {
 
     #[cfg(unix)]
     pub fn get_asset(&self) -> PathBuf {
-        self.dir().join("archive.tar.bz2")
+        self.dir().join("archive.tar.gz")
     }
 
     pub fn asset_need_fetched(&self) -> bool {
@@ -67,12 +67,34 @@ impl Release {
         if !self.asset_need_open() {
             return Ok(());
         }
-        use flate2::read::GzDecoder;
-        use std::fs::File;
-        use tar::Archive;
-
         let file = File::open(self.get_asset())
             .chain_err(|| format!("Cannot open `{}`", self.get_asset().display()))?;
+        self.unpack_asset(file)
+    }
+
+    #[cfg(windows)]
+    fn unpack_asset(&self, file: File) -> Result<()> {
+        let mut archive = zip::read::ZipArchive::new(file)
+            .chain_err(|| format!("cannot unpack `{}`", self.get_asset().display()))?;
+        for i in 0..archive.len() {
+            let mut file = archive
+                .by_index(i)
+                .chain_err(|| "cannot get the next file from the archive")?;
+            let path = self.dir().join(file.name());
+            let mut decompressed_file = File::create(path.clone())
+                .chain_err(|| format!("cannot write to {}", path.as_path().display()))?;
+            std::io::copy(&mut file, &mut decompressed_file)
+                .chain_err(|| format!("cannot write to {}", path.as_path().display()))?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    fn unpack_asset(&self, file: File) -> Result<()> {
+        use flate2::read::GzDecoder;
+        use tar::Archive;
+
         let content = GzDecoder::new(file);
         let mut archive = Archive::new(content);
         archive.set_preserve_permissions(true);
