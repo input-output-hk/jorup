@@ -2,6 +2,7 @@ use crate::{utils::channel::Channel, utils::release::Release};
 use jorup_lib::Version;
 use serde::{Deserialize, Serialize};
 use std::{
+    error, fmt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -410,6 +411,51 @@ fn check_pid(pid: u32) -> Result<bool> {
         .chain_err(|| "Cannot check process ID is running")?;
 
     Ok(status.success())
+}
+
+#[cfg(windows)]
+#[derive(Debug)]
+struct WindowsError(u64);
+
+#[cfg(windows)]
+impl fmt::Display for WindowsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "system error: {}", self.0)
+    }
+}
+
+#[cfg(windows)]
+impl error::Error for WindowsError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
+}
+
+#[cfg(windows)]
+fn check_pid(pid: u32) -> Result<bool> {
+    use winapi::{
+        shared::minwindef::*,
+        um::{
+            errhandlingapi::GetLastError,
+            minwinbase::*,
+            processthreadsapi::{GetExitCodeProcess, OpenProcess},
+            winnt::*,
+        },
+    };
+
+    unsafe {
+        let process_handle = OpenProcess(PROCESS_QUERY_INFORMATION, TRUE, pid as DWORD);
+
+        let mut exit_code: DWORD = 0;
+        let check_status = GetExitCodeProcess(process_handle, &mut exit_code as *mut DWORD);
+
+        if check_status == TRUE {
+            Ok(exit_code == STILL_ACTIVE)
+        } else {
+            let error_code = GetLastError();
+            Err(WindowsError(error_code as u64)).chain_err(|| "Cannot check process ID is running")
+        }
+    }
 }
 
 fn get_version<P>(executable: &str, cmd: P) -> Result<Version>
