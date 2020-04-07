@@ -23,7 +23,7 @@ mod validator {
     }
 
     pub fn version_req(arg: String) -> Result<(), String> {
-        use jorup_lib::VersionReq;
+        use semver::VersionReq;
 
         VersionReq::from_str(&arg)
             .map(|_version| ())

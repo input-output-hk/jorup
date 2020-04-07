@@ -1,6 +1,7 @@
 use crate::common::JorupConfig;
 use error_chain::ChainedError as _;
-use jorup_lib::{PartialChannelDesc, VersionReq};
+use jorup_lib::PartialChannelDesc;
+use semver::VersionReq;
 use std::path::{Path, PathBuf};
 
 error_chain! {}

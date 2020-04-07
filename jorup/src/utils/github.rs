@@ -1,23 +1,31 @@
 use jorup_lib::download;
+use semver::{SemVerError, Version, VersionReq};
 use serde::Deserialize;
 
 error_chain! {
     errors {
-        CannotGetReleaseData(version: String) {
-            description("failed to get any data for the requested release")
-            display("failed to get any data for version v{}", version)
+        CannotGetReleaseData {
+            description("failed to fetch releases")
         }
 
         MalformedReleaseData {
             description("cannot parse the release data")
         }
 
-        AssetNotFound(version: String, platform: String) {
-            description("asset not found for the requested version and platform")
-            display("no assets with version v{} for {} found", version, platform)
+        ReleaseNotFound(version: String) {
+            description("release not found for the given contraints")
+            display("no release matching {}", version)
         }
     }
 }
+
+pub struct Release {
+    version: Version,
+    assets: Vec<AssetDef>,
+}
+
+#[derive(Deserialize)]
+struct ReleasesDef(Vec<ReleaseDef>);
 
 #[derive(Deserialize)]
 struct ReleaseDef {
@@ -32,47 +40,58 @@ struct AssetDef {
     name: String,
 }
 
-/// Get the URL to download an asset. Version should specified as `x.y.z`.
-/// `None` tells to download the latest version.
-pub fn get_asset_url(version: Option<&str>, platform: &str) -> Result<String> {
-    let release_url = match version {
-        Some(version) => format!(
-            "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/v{}",
-            version
-        ),
-        None => {
-            "https://api.github.com/repos/input-output-hk/jormungandr/releases/latest".to_owned()
-        }
-    };
-
-    let mut release_data_raw: Vec<u8> = Vec::new();
+pub fn find_matching_release(version_req: &VersionReq) -> Result<Release> {
+    let mut releases_data_raw: Vec<u8> = Vec::new();
     download(
-        version.unwrap_or("latest"),
-        &release_url,
-        &mut release_data_raw,
+        "GitHub releases",
+        "https://api.github.com/repos/input-output-hk/jormungandr/releases",
+        &mut releases_data_raw,
     )
-    .chain_err(|| ErrorKind::CannotGetReleaseData(version.unwrap_or("latest").to_owned()))?;
-    let release: ReleaseDef =
-        serde_json::from_slice(&release_data_raw).chain_err(|| ErrorKind::MalformedReleaseData)?;
+    .chain_err(|| ErrorKind::CannotGetReleaseData)?;
 
-    let ext = if platform.contains("windows") {
-        "zip"
-    } else {
-        "tar.gz"
-    };
+    let releases: ReleasesDef =
+        serde_json::from_slice(&releases_data_raw).chain_err(|| ErrorKind::MalformedReleaseData)?;
 
-    let expected_name = format!("jormungandr-{}-{}.{}", release.tag_name, platform, ext);
-
-    let maybe_asset = release
-        .assets
+    let release = releases
+        .0
         .into_iter()
-        .find(|asset| asset.name == expected_name);
+        .map(|release_def| {
+            let (_, semver_str) = release_def.tag_name[..].split_at(1);
+            Ok::<_, SemVerError>(Release {
+                version: Version::parse(semver_str)?,
+                assets: release_def.assets,
+            })
+        })
+        .filter_map(core::result::Result::ok)
+        .find(|release| version_req.matches(&release.version));
 
-    match maybe_asset {
-        Some(asset) => Ok(asset.url),
-        None => Err(Error::from_kind(ErrorKind::AssetNotFound(
-            version.unwrap_or("latest").to_owned(),
-            platform.to_owned(),
+    match release {
+        Some(release) => Ok(release),
+        None => Err(Error::from_kind(ErrorKind::ReleaseNotFound(
+            version_req.to_string(),
         ))),
+    }
+}
+
+impl Release {
+    pub fn get_asset_url(&self, platform: &str) -> Option<&str> {
+        let ext = if platform.contains("windows") {
+            "zip"
+        } else {
+            "tar.gz"
+        };
+        let expected_name = format!(
+            "jormungandr-v{}-{}-generic.{}",
+            self.version.to_string(),
+            platform,
+            ext
+        );
+        println!("{}", expected_name);
+        let maybe_asset = self.assets.iter().find(|asset| asset.name == expected_name);
+        maybe_asset.map(|asset| &asset.url[..])
+    }
+
+    pub fn version(&self) -> &Version {
+        &self.version
     }
 }

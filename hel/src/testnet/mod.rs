@@ -4,8 +4,8 @@ use clap::ArgMatches;
 use dialoguer::{Input, Validator};
 use jorup_lib::{
     ChannelError, ChannelErrorKind, Disposition, EntryBuilder, Genesis, PartialChannelDesc,
-    VersionReq,
 };
+use semver::VersionReq;
 use std::process::Stdio;
 
 #[derive(Clone, Copy)]

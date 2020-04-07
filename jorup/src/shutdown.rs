@@ -3,7 +3,7 @@ use crate::{
     utils::runner::RunnerControl,
 };
 use clap::ArgMatches;
-use jorup_lib::Version;
+use semver::Version;
 
 pub mod arg {
     use crate::utils::channel::Channel;

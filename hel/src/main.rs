@@ -4,7 +4,6 @@ extern crate clap;
 extern crate error_chain;
 
 mod common;
-mod release;
 mod testnet;
 
 use clap::App;
@@ -18,7 +17,6 @@ error_chain! {
 
     links {
         Testnet(testnet::Error, testnet::ErrorKind);
-        Release(release::Error, release::ErrorKind);
     }
 
     errors {
@@ -67,8 +65,7 @@ quick_main!(|| -> Result<()> {
         .arg(common::arg::dry_run())
         .arg(common::arg::generate_autocompletion())
         .arg(common::arg::jcli())
-        .subcommand(testnet::arg::command())
-        .subcommand(release::arg::command());
+        .subcommand(testnet::arg::command());
 
     run_main(app)
 });
@@ -90,10 +87,6 @@ fn run_main<'a, 'b>(mut app: App<'a, 'b>) -> Result<()> {
         (testnet::arg::name::COMMAND, Some(matches)) => testnet::run(cfg, matches)?,
         (testnet::arg::name::COMMAND, None) => bail!(ErrorKind::ExpectedOptionsOrSubCommands(
             testnet::arg::name::COMMAND.to_owned()
-        )),
-        (release::arg::name::COMMAND, Some(matches)) => release::run(cfg, matches)?,
-        (release::arg::name::COMMAND, None) => bail!(ErrorKind::ExpectedOptionsOrSubCommands(
-            release::arg::name::COMMAND.to_owned()
         )),
         (cmd, _) => {
             if cmd.is_empty() {

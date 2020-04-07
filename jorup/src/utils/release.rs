@@ -1,23 +1,23 @@
 use crate::common::JorupConfig;
-use jorup_lib::{Version, VersionReq};
+use crate::utils::github;
+use semver::VersionReq;
 use std::{fs::File, path::PathBuf};
 
-error_chain! {}
+error_chain! {
+    links {
+        GitHub(github::Error, github::ErrorKind);
+    }
+}
 
 pub struct Release {
-    release: jorup_lib::Release,
+    release: github::Release,
 
     path: PathBuf,
 }
 
 impl Release {
     pub fn new(cfg: &mut JorupConfig, req: &VersionReq) -> Result<Self> {
-        let release = cfg
-            .load_jor()
-            .unwrap()
-            .search_release(req.clone())
-            .cloned()
-            .ok_or_else(|| format!("No release that matches `{}`", req))?;
+        let release = github::find_matching_release(req)?;
 
         let path = cfg.release_dir().join(release.version().to_string());
         std::fs::create_dir_all(&path)
@@ -105,19 +105,18 @@ impl Release {
         Ok(())
     }
 
-    pub fn asset_remote(&self) -> Result<&jorup_lib::Url> {
+    pub fn asset_remote(&self) -> Result<&str> {
         if let Some(platform) = platforms::guess_current() {
-            if let Some(asset) = self.release.assets().get(platform.target_triple) {
-                Ok(asset)
-            } else {
-                bail!(format!("No assets for host `{}`", platform.target_triple))
+            match self.release.get_asset_url(platform.target_triple) {
+                Some(url) => Ok(url),
+                None => bail!("asset not found for the current platform"),
             }
         } else {
             bail!("cannot guess host system")
         }
     }
 
-    pub fn version(&self) -> &Version {
+    pub fn version(&self) -> &semver::Version {
         self.release.version()
     }
 

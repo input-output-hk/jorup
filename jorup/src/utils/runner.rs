@@ -1,13 +1,15 @@
 use crate::{utils::channel::Channel, utils::release::Release};
-use jorup_lib::Version;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::{
-    error, fmt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 use tokio::prelude::*;
 use tokio_process::CommandExt as _;
+
+#[cfg(windows)]
+use std::{error, fmt};
 
 error_chain! {}
 
