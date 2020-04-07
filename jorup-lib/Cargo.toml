@@ -20,7 +20,7 @@ indicatif = "0.14"
 [dependencies.reqwest]
 version = "0.10.4"
 default-features = false
-features = ["rustls-tls", "blocking"]
+features = ["rustls-tls", "blocking", "gzip"]
 
 [dev-dependencies]
 serde_json = "1.0"

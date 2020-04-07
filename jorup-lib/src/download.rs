@@ -3,6 +3,8 @@ use std::io;
 
 pub use reqwest::Error;
 
+static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
 const INDICATIF_TEMPLATE: &'static str =
     "[{elapsed_precise}] [{bar:40.cyan/blue}] {msg} {bytes}/{total_bytes} ({bytes_per_sec}, {eta})";
 const INDICATIF_LENGTH: u64 = 100;
@@ -50,15 +52,21 @@ fn download_internal<W: io::Write>(
     to: &mut W,
     progress: &ProgressBar,
 ) -> Result<(), Error> {
-    let mut response = reqwest::blocking::get(url)?;
-    let total = response.content_length().unwrap();
-    progress.set_length(total);
-
-    let mut writer = WriterWithProgress {
-        inner: to,
-        progress,
-        written: 0,
-    };
-
-    response.copy_to(&mut writer).map(|_| ())
+    let client = reqwest::blocking::ClientBuilder::new()
+        .gzip(true)
+        .user_agent(APP_USER_AGENT)
+        .build()?;
+    let mut response = client.execute(client.get(url).build()?)?;
+    if let Some(total) = response.content_length() {
+        progress.set_length(total);
+        let mut writer = WriterWithProgress {
+            inner: to,
+            progress,
+            written: 0,
+        };
+        response.copy_to(&mut writer)
+    } else {
+        response.copy_to(to)
+    }
+    .map(|_| ())
 }
