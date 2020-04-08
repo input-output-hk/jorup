@@ -1,13 +1,13 @@
 use crate::common::JorupConfig;
+use crate::jorfile::PartialChannelDesc;
 use error_chain::ChainedError as _;
-use jorup_lib::PartialChannelDesc;
 use semver::VersionReq;
 use std::path::{Path, PathBuf};
 
 error_chain! {}
 
 pub struct Channel {
-    entry: jorup_lib::Entry,
+    entry: crate::jorfile::Entry,
     version: PartialChannelDesc,
 
     path: PathBuf,
@@ -62,7 +62,7 @@ impl Channel {
 
     fn new(
         cfg: &JorupConfig,
-        entry: jorup_lib::Entry,
+        entry: crate::jorfile::Entry,
         channel_version: PartialChannelDesc,
     ) -> Result<Self> {
         let path = cfg
@@ -97,7 +97,7 @@ impl Channel {
         self.entry().jormungandr_versions()
     }
 
-    pub fn entry(&self) -> &jorup_lib::Entry {
+    pub fn entry(&self) -> &crate::jorfile::Entry {
         &self.entry
     }
 

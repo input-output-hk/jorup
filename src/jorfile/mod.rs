@@ -1,18 +1,8 @@
-#[cfg(test)]
-extern crate quickcheck;
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
-#[macro_use(error_chain, bail)]
-extern crate error_chain;
-
-mod download;
 mod testnet;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub use download::download;
 pub use testnet::{
     Channel, ChannelDesc, ChannelError, ChannelErrorKind, Date, Disposition, Entry, EntryBuilder,
     Genesis, PartialChannelDesc, TrustedPeer,

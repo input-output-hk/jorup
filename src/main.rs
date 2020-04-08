@@ -1,3 +1,8 @@
+#[cfg(test)]
+extern crate quickcheck;
+#[cfg(test)]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
 #[macro_use(error_chain, bail, quick_main)]
 extern crate error_chain;
 #[macro_use(crate_name, crate_version, crate_authors, crate_description, value_t)]
@@ -7,6 +12,7 @@ extern crate lazy_static;
 
 mod common;
 mod info;
+mod jorfile;
 mod run;
 mod setup;
 mod shutdown;

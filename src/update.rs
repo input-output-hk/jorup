@@ -1,6 +1,6 @@
 use crate::{
     common::JorupConfig,
-    utils::{channel::Channel, download, release::Release},
+    utils::{channel::Channel, download_file, release::Release},
 };
 use clap::ArgMatches;
 use semver::Version;
@@ -55,7 +55,7 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
         .chain_err(|| ErrorKind::Release(release.version().clone()))?;
 
     if release.asset_need_fetched() && !cfg.offline() {
-        download(
+        download_file(
             &release.get_asset().display().to_string(),
             &asset.as_ref(),
             release.get_asset(),

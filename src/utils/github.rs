@@ -1,4 +1,4 @@
-use jorup_lib::download;
+use super::download::download_to_reader;
 use semver::{SemVerError, Version, VersionReq};
 use serde::Deserialize;
 
@@ -42,7 +42,7 @@ struct AssetDef {
 
 pub fn find_matching_release(version_req: &VersionReq) -> Result<Release> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
-    download(
+    download_to_reader(
         "GitHub releases",
         "https://api.github.com/repos/input-output-hk/jormungandr/releases",
         &mut releases_data_raw,

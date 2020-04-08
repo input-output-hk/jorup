@@ -1,6 +1,6 @@
-use crate::utils::download;
+use crate::jorfile::PartialChannelDesc;
+use crate::utils::download_file;
 use clap::ArgMatches;
-use jorup_lib::PartialChannelDesc;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
 
@@ -10,7 +10,7 @@ pub struct JorupConfig {
     settings: JorupSettings,
 
     jor_file: Option<PathBuf>,
-    jor: Option<jorup_lib::Jor>,
+    jor: Option<crate::jorfile::Jor>,
     offline: bool,
 }
 
@@ -126,7 +126,7 @@ impl JorupConfig {
         &self.settings().default
     }
 
-    pub fn current_entry(&mut self) -> Result<Option<&jorup_lib::Entry>> {
+    pub fn current_entry(&mut self) -> Result<Option<&crate::jorfile::Entry>> {
         self.load_jor()?;
         let current_default = &self.settings.default;
 
@@ -199,7 +199,7 @@ impl JorupConfig {
             return Ok(());
         }
 
-        download(
+        download_file(
             "jorfile",
             "https://raw.githubusercontent.com/input-output-hk/jorup/master/jorfile.json",
             self.jorfile(),
@@ -207,7 +207,7 @@ impl JorupConfig {
         .chain_err(|| "Cannot sync jorfile with registry")
     }
 
-    pub fn load_jor(&mut self) -> Result<&jorup_lib::Jor> {
+    pub fn load_jor(&mut self) -> Result<&crate::jorfile::Jor> {
         if self.jor.is_none() {
             let file = std::fs::File::open(self.jorfile())
                 .chain_err(|| format!("Cannot open file {}", self.jorfile().display()))?;
