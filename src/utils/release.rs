@@ -20,8 +20,6 @@ pub enum Error {
     CannotOpenFile(#[source] io::Error, PathBuf),
     #[error("Asset not found for the current platform")]
     AssetNotFound,
-    #[error("Cannot guess host system")]
-    UnrecognizedHostSystem,
     #[cfg(unix)]
     #[error("Cannot unpack assset: {1}")]
     CannotUnpack(#[source] io::Error, PathBuf),
@@ -121,13 +119,9 @@ impl Release {
     }
 
     pub fn asset_remote(&self) -> Result<&str, Error> {
-        if let Some(platform) = platforms::guess_current() {
-            match self.release.get_asset_url(platform.target_triple) {
-                Some(url) => Ok(url),
-                None => Err(Error::AssetNotFound),
-            }
-        } else {
-            Err(Error::UnrecognizedHostSystem)
+        match self.release.get_asset_url(crate::TARGET) {
+            Some(url) => Ok(url),
+            None => Err(Error::AssetNotFound),
         }
     }
 

@@ -856,7 +856,6 @@ dependencies = [
  "hex",
  "indicatif",
  "lazy_static",
- "platforms",
  "poldercast",
  "quickcheck",
  "quickcheck_macros",
@@ -1192,12 +1191,6 @@ name = "pin-utils"
 version = "0.1.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5894c618ce612a3fa23881b152b608bafb8c56cfc22f434a3ba3120b40f7b587"
-
-[[package]]
-name = "platforms"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
 
 [[package]]
 name = "podio"

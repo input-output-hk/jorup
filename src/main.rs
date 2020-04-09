@@ -21,6 +21,8 @@ mod wallet;
 use clap::{App, AppSettings};
 use thiserror::Error;
 
+const TARGET: &str = env!("TARGET");
+
 #[derive(Debug, Error)]
 enum Error {
     #[error(transparent)]
