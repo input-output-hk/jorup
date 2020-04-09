@@ -35,10 +35,6 @@ pub enum Error {
     CannotOpenFile(#[source] io::Error, PathBuf),
     #[error("Cannot parse file: {1}")]
     Json(#[source] serde_json::Error, PathBuf),
-    #[error("Cannot parse file: {}", 1)]
-    TomlDeserialize(#[source] toml::de::Error, PathBuf),
-    #[error("Cannot serialize config")]
-    TomlSerialize(#[from] toml::ser::Error),
     #[error("Cannot sync jorfile with registry")]
     CannotSyncRegistry(#[source] crate::utils::download::Error),
 }
@@ -149,17 +145,21 @@ impl JorupConfig {
     }
 
     fn load_settings(&mut self) -> Result<(), Error> {
-        let toml = std::fs::read_to_string(self.jorup_settings_file())
+        let json = std::fs::read_to_string(self.jorup_settings_file())
             .map_err(|e| Error::CannotOpenFile(e, self.jorup_settings_file()))?;
 
-        self.settings = toml::from_str(&toml)
-            .map_err(|e| Error::TomlDeserialize(e, self.jorup_settings_file()))?;
+        self.settings =
+            serde_json::from_str(&json).map_err(|e| Error::Json(e, self.jorup_settings_file()))?;
         Ok(())
     }
 
     fn save_settings(&self) -> Result<(), Error> {
-        std::fs::write(self.jorup_settings_file(), toml::to_vec(&self.settings)?)
-            .map_err(|e| Error::CannotSaveSettings(e, self.jorup_settings_file()))
+        std::fs::write(
+            self.jorup_settings_file(),
+            serde_json::to_vec(&self.settings)
+                .map_err(|e| Error::Json(e, self.jorup_settings_file()))?,
+        )
+        .map_err(|e| Error::CannotSaveSettings(e, self.jorup_settings_file()))
     }
 
     pub fn jorfile(&self) -> PathBuf {
@@ -177,7 +177,7 @@ impl JorupConfig {
         self.home_dir.join("release")
     }
     pub fn jorup_settings_file(&self) -> PathBuf {
-        self.home_dir.join("settings.toml")
+        self.home_dir.join("settings.json")
     }
 
     pub fn offline(&self) -> bool {

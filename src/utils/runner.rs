@@ -88,7 +88,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
             let info = std::fs::read_to_string(&info_file)
                 .map_err(|e| Error::CannotOpenFile(e, info_file.clone()))?;
             let info: RunnerInfo =
-                toml::from_str(&info).map_err(|e| Error::TomlDeserialize(e, info_file))?;
+                serde_json::from_str(&info).map_err(|e| Error::Json(e, info_file))?;
 
             let is_up = check_pid(info.pid)?;
 
@@ -258,7 +258,7 @@ rest:
 
         std::fs::write(
             self.channel.get_runner_file(),
-            toml::to_string(&runner_info).unwrap(),
+            serde_json::to_string(&runner_info).unwrap(),
         )
         // TODO? on failure, shall we kill the child?
         .map_err(|e| Error::CannotWriteFile(e, self.channel.get_runner_file()))?;

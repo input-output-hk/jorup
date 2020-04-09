@@ -118,7 +118,7 @@ impl Channel {
     }
 
     pub fn get_runner_file(&self) -> PathBuf {
-        self.dir().join("running_config.toml")
+        self.dir().join("running_config.json")
     }
 
     pub fn get_genesis_block_hash(&self) -> PathBuf {
