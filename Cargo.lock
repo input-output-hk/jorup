@@ -173,22 +173,6 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45e0f3986890b3acbc782009e2629dfe2baa430ac091519ce3be26164a2ae6c0"
-dependencies = [
- "clicolors-control",
- "encode_unicode",
- "lazy_static",
- "libc",
- "regex",
- "termios",
- "unicode-width",
- "winapi 0.3.8",
-]
-
-[[package]]
-name = "console"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6728a28023f207181b193262711102bfbaf47cc9d13bc71d0736607ef8efe88c"
@@ -260,7 +244,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "116f66c4e7b19af0d52857aa4ff710cc3b4781d9c16616e31540bc55ec57ba8c"
 dependencies = [
- "console 0.10.0",
+ "console",
  "lazy_static",
  "tempfile",
 ]
@@ -466,12 +450,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hex"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
-
-[[package]]
 name = "http"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -566,7 +544,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49a68371cf417889c9d7f98235b7102ea7c54fc59bcbd22f3dea785be9d27e40"
 dependencies = [
- "console 0.10.0",
+ "console",
  "lazy_static",
  "number_prefix",
  "regex",
@@ -593,11 +571,9 @@ version = "0.3.0"
 dependencies = [
  "chrono",
  "clap",
- "console 0.9.2",
  "dialoguer",
  "dirs",
  "flate2",
- "hex",
  "indicatif",
  "lazy_static",
  "quickcheck",
