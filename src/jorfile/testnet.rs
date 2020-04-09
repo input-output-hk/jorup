@@ -33,7 +33,7 @@ pub struct EntryBuilder {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct TrustedPeer {
-    address: poldercast::Address,
+    address: String,
     id: String,
 }
 
@@ -157,7 +157,7 @@ impl Entry {
 }
 
 impl TrustedPeer {
-    pub fn address(&self) -> &poldercast::Address {
+    pub fn address(&self) -> &str {
         &self.address
     }
     pub fn id(&self) -> &str {
