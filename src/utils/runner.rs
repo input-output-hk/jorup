@@ -7,8 +7,6 @@ use std::{
     process::{Command, Stdio},
 };
 use thiserror::Error;
-use tokio::prelude::*;
-use tokio_process::CommandExt as _;
 
 #[cfg(windows)]
 use std::{error, fmt};
@@ -271,14 +269,12 @@ rest:
     pub fn run(mut self, parameters: &[&str]) -> Result<(), Error> {
         let mut cmd = self.prepare()?;
         cmd.args(parameters);
-        let child = cmd.spawn_async().map_err(Error::CannotStartJormungandr)?;
+        let mut child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
 
-        tokio::run(
-            child
-                .map(|status| println!("exit status: {}", status))
-                .map_err(|e| panic!("failed to wait for exit: {}", e)),
-        );
-        Ok(())
+        child
+            .wait()
+            .map(|status| println!("exit status: {}", status))
+            .map_err(|e| panic!("failed to wait for exit: {}", e))
     }
 
     pub fn shutdown(&mut self) -> Result<(), Error> {
