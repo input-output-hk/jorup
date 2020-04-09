@@ -2,20 +2,16 @@ mod testnet;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use thiserror::Error;
 
 pub use testnet::{
-    Channel, ChannelDesc, ChannelError, ChannelErrorKind, Date, Disposition, Entry, EntryBuilder,
-    Genesis, PartialChannelDesc, TrustedPeer,
+    Channel, ChannelDesc, Date, Disposition, Entry, EntryBuilder, Genesis, PartialChannelDesc,
+    TrustedPeer,
 };
 
-error_chain! {
-    errors {
-        EntryConflict (previous_channel: ChannelDesc) {
-            description("Entry already exists"),
-            display("Channel '{}' already exists", previous_channel),
-        }
-    }
-}
+#[derive(Debug, Error)]
+#[error("Channel '{0}' already exists")]
+struct Error(ChannelDesc);
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(remote = "JorData")]
@@ -45,9 +41,9 @@ impl Jor {
             .last()
     }
 
-    pub fn add_entry(&mut self, entry: Entry) -> Result<()> {
+    pub fn add_entry(&mut self, entry: Entry) -> Result<(), Error> {
         if let Some(prev) = self.0.entries.insert(entry.channel().clone(), entry) {
-            bail!(ErrorKind::EntryConflict(prev.channel().clone()))
+            Err(Error(prev.channel().clone()))
         } else {
             Ok(())
         }

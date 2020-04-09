@@ -2,7 +2,8 @@ use crate::jorfile::PartialChannelDesc;
 use crate::utils::download_file;
 use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeSet, io, path::PathBuf};
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct JorupConfig {
@@ -20,28 +21,30 @@ pub struct JorupSettings {
     default: PartialChannelDesc,
 }
 
-error_chain! {
-    errors {
-        NoHOMEDir {
-            description("No $HOME environment variable, can not set JORUP_HOME value.")
-        }
-        CannotCreateHomeDir(home_dir: PathBuf) {
-            description("Cannot create the JORUP_HOME directory"),
-            display("Cannot create JORUP_HOME [={}]", home_dir.display()),
-        }
-        CannotCreateInitDir(init_dir: PathBuf) {
-            description("Cannot create one of the main HOME directory"),
-            display("Cannot create directory [={}]", init_dir.display()),
-        }
-        CannotSaveSettings(file: PathBuf) {
-            description("Cannot save the setting file"),
-            display("Cannot save settings [={}]", file.display()),
-        }
-    }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("No $HOME environment variable, can not set JORUP_HOME value.")]
+    NoHomeDir,
+    #[error("Cannot create JORUP_HOME: {1}")]
+    CannotCreateHomeDir(#[source] io::Error, PathBuf),
+    #[error("Cannot create directory: {1}")]
+    CannotCreateInitDir(#[source] io::Error, PathBuf),
+    #[error("Cannot save settings: {1}")]
+    CannotSaveSettings(#[source] io::Error, PathBuf),
+    #[error("Cannot open file: {1}")]
+    CannotOpenFile(#[source] io::Error, PathBuf),
+    #[error("Cannot parse file: {1}")]
+    Json(#[source] serde_json::Error, PathBuf),
+    #[error("Cannot parse file: {}", 1)]
+    TomlDeserialize(#[source] toml::de::Error, PathBuf),
+    #[error("Cannot serialize config")]
+    TomlSerialize(#[from] toml::ser::Error),
+    #[error("Cannot sync jorfile with registry")]
+    CannotSyncRegistry(#[source] crate::utils::download::Error),
 }
 
 impl JorupConfig {
-    pub fn new<'a>(args: &ArgMatches<'a>) -> Result<Self> {
+    pub fn new<'a>(args: &ArgMatches<'a>) -> Result<Self, Error> {
         let home_dir = value_t!(args, arg::name::JORUP_HOME, PathBuf).unwrap();
 
         let home_dir = if home_dir.is_absolute() {
@@ -51,7 +54,7 @@ impl JorupConfig {
         };
 
         std::fs::create_dir_all(&home_dir)
-            .chain_err(|| ErrorKind::CannotCreateHomeDir(home_dir.clone()))?;
+            .map_err(|e| Error::CannotCreateHomeDir(e, home_dir.clone()))?;
 
         let jor_file = if let Some(jor_file) = args.value_of(arg::name::JOR_FILE) {
             Some(jor_file.into())
@@ -73,13 +76,13 @@ impl JorupConfig {
         Ok(cfg)
     }
 
-    fn init(&self) -> Result<()> {
+    fn init(&self) -> Result<(), Error> {
         std::fs::create_dir_all(self.bin_dir())
-            .chain_err(|| ErrorKind::CannotCreateInitDir(self.bin_dir()))?;
+            .map_err(|e| Error::CannotCreateInitDir(e, self.bin_dir()))?;
         std::fs::create_dir_all(self.channel_dir())
-            .chain_err(|| ErrorKind::CannotCreateInitDir(self.channel_dir()))?;
+            .map_err(|e| Error::CannotCreateInitDir(e, self.channel_dir()))?;
         std::fs::create_dir_all(self.release_dir())
-            .chain_err(|| ErrorKind::CannotCreateInitDir(self.release_dir()))?;
+            .map_err(|e| Error::CannotCreateInitDir(e, self.release_dir()))?;
 
         if !self.jorup_settings_file().is_file() {
             self.save_settings()?;
@@ -126,7 +129,7 @@ impl JorupConfig {
         &self.settings().default
     }
 
-    pub fn current_entry(&mut self) -> Result<Option<&crate::jorfile::Entry>> {
+    pub fn current_entry(&mut self) -> Result<Option<&crate::jorfile::Entry>, Error> {
         self.load_jor()?;
         let current_default = &self.settings.default;
 
@@ -140,34 +143,23 @@ impl JorupConfig {
             .last())
     }
 
-    pub fn set_default_channel(&mut self, new_default: PartialChannelDesc) -> Result<()> {
+    pub fn set_default_channel(&mut self, new_default: PartialChannelDesc) -> Result<(), Error> {
         self.settings.default = new_default;
         self.save_settings()
     }
 
-    fn load_settings(&mut self) -> Result<()> {
-        let toml = std::fs::read_to_string(self.jorup_settings_file()).chain_err(|| {
-            format!(
-                "Cannot open settings file: {}",
-                self.jorup_settings_file().display()
-            )
-        })?;
+    fn load_settings(&mut self) -> Result<(), Error> {
+        let toml = std::fs::read_to_string(self.jorup_settings_file())
+            .map_err(|e| Error::CannotOpenFile(e, self.jorup_settings_file()))?;
 
-        self.settings = toml::from_str(&toml).chain_err(|| {
-            format!(
-                "Cannot parse settings file: {}",
-                self.jorup_settings_file().display()
-            )
-        })?;
+        self.settings = toml::from_str(&toml)
+            .map_err(|e| Error::TomlDeserialize(e, self.jorup_settings_file()))?;
         Ok(())
     }
 
-    fn save_settings(&self) -> Result<()> {
-        std::fs::write(
-            self.jorup_settings_file(),
-            toml::to_vec(&self.settings).chain_err(|| "Cannot encode settings in Toml")?,
-        )
-        .chain_err(|| ErrorKind::CannotSaveSettings(self.jorup_settings_file()))
+    fn save_settings(&self) -> Result<(), Error> {
+        std::fs::write(self.jorup_settings_file(), toml::to_vec(&self.settings)?)
+            .map_err(|e| Error::CannotSaveSettings(e, self.jorup_settings_file()))
     }
 
     pub fn jorfile(&self) -> PathBuf {
@@ -192,7 +184,7 @@ impl JorupConfig {
         self.offline
     }
 
-    pub fn sync_jorfile(&self) -> Result<()> {
+    pub fn sync_jorfile(&self) -> Result<(), Error> {
         // do not sync if the jorfile was given as parameter of the
         // command line or if `--offline`
         if self.jor_file.is_some() || self.offline {
@@ -204,16 +196,15 @@ impl JorupConfig {
             "https://raw.githubusercontent.com/input-output-hk/jorup/master/jorfile.json",
             self.jorfile(),
         )
-        .chain_err(|| "Cannot sync jorfile with registry")
+        .map_err(Error::CannotSyncRegistry)
     }
 
-    pub fn load_jor(&mut self) -> Result<&crate::jorfile::Jor> {
+    pub fn load_jor(&mut self) -> Result<&crate::jorfile::Jor, Error> {
         if self.jor.is_none() {
             let file = std::fs::File::open(self.jorfile())
-                .chain_err(|| format!("Cannot open file {}", self.jorfile().display()))?;
+                .map_err(|e| Error::CannotOpenFile(e, self.jorfile()))?;
 
-            let jor = serde_json::from_reader(file)
-                .chain_err(|| format!("cannot parse file {}", self.jorfile().display()))?;
+            let jor = serde_json::from_reader(file).map_err(|e| Error::Json(e, self.jorfile()))?;
             self.jor = Some(jor);
         }
 
@@ -230,7 +221,7 @@ impl Default for JorupSettings {
 }
 
 pub mod arg {
-    use super::Result;
+    use super::Error;
     use clap::Arg;
 
     pub mod name {
@@ -240,7 +231,7 @@ pub mod arg {
         pub const OFFLINE: &str = "JORUP_OFFLINE";
     }
 
-    pub fn jorup_home<'a, 'b>() -> Result<Arg<'a, 'b>> {
+    pub fn jorup_home<'a, 'b>() -> Result<Arg<'a, 'b>, Error> {
         let arg = Arg::with_name(name::JORUP_HOME)
             .long("jorup-home")
             .help("Set the directory home for jorup")
@@ -309,8 +300,8 @@ lazy_static! {
     static ref JORUP_HOME: PathBuf = { jorup_home().unwrap() };
 }
 
-fn jorup_home() -> Result<PathBuf> {
+fn jorup_home() -> Result<PathBuf, Error> {
     dirs::home_dir()
         .map(|d| d.join(".jorup"))
-        .ok_or_else(|| ErrorKind::NoHOMEDir.into())
+        .ok_or_else(|| Error::NoHomeDir)
 }

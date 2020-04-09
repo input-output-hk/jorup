@@ -1,8 +1,7 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io;
 use std::path::{Path, PathBuf};
-
-pub use reqwest::Error as RequestError;
+use thiserror::Error;
 
 static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
@@ -10,18 +9,17 @@ const INDICATIF_TEMPLATE: &'static str =
     "[{elapsed_precise}] [{bar:40.cyan/blue}] {msg} {bytes}/{total_bytes} ({bytes_per_sec}, {eta})";
 const INDICATIF_LENGTH: u64 = 100;
 
-error_chain! {
-    errors {
-        CannotCreateDestinationFile(path: PathBuf) {
-            description("Cannot create file"),
-            display("Cannot create destination file for download: {}", path.display()),
-        }
-
-        CannotDownloadAsset(asset: String, into: PathBuf) {
-            description("Failed to download asset"),
-            display("Failed to download '{}' into file {}", asset, into.display())
-        }
-    }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Cannot create destination file for download: {0}")]
+    CannotCreateDestinationFile(#[source] io::Error, PathBuf),
+    #[error("Failed to download '{asset}' into file {destination}")]
+    CannotDownloadAsset {
+        #[source]
+        source: reqwest::Error,
+        asset: String,
+        destination: PathBuf,
+    },
 }
 
 struct WriterWithProgress<'a, W> {
@@ -50,7 +48,7 @@ pub fn download_to_reader<W: io::Write>(
     what: &str,
     url: &str,
     to: &mut W,
-) -> std::result::Result<(), RequestError> {
+) -> std::result::Result<(), reqwest::Error> {
     let style = ProgressStyle::default_bar().template(INDICATIF_TEMPLATE);
     let progress = ProgressBar::new(INDICATIF_LENGTH).with_style(style);
     progress.set_message(what);
@@ -70,7 +68,7 @@ fn download_internal<W: io::Write>(
     url: &str,
     to: &mut W,
     progress: &ProgressBar,
-) -> std::result::Result<(), RequestError> {
+) -> std::result::Result<(), reqwest::Error> {
     let client = reqwest::blocking::ClientBuilder::new()
         .gzip(true)
         .user_agent(APP_USER_AGENT)
@@ -90,13 +88,16 @@ fn download_internal<W: io::Write>(
     .map(|_| ())
 }
 
-pub fn download_file<P: AsRef<Path>>(what: &str, url: &str, to: P) -> Result<()> {
+pub fn download_file<P: AsRef<Path>>(what: &str, url: &str, to: P) -> Result<(), Error> {
     let mut file = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
         .open(to.as_ref())
-        .chain_err(|| ErrorKind::CannotCreateDestinationFile(to.as_ref().to_path_buf()))?;
+        .map_err(|e| Error::CannotCreateDestinationFile(e, to.as_ref().to_path_buf()))?;
 
-    download_to_reader(what, url, &mut file)
-        .chain_err(|| ErrorKind::CannotDownloadAsset(what.to_owned(), to.as_ref().to_path_buf()))
+    download_to_reader(what, url, &mut file).map_err(|e| Error::CannotDownloadAsset {
+        source: e,
+        asset: what.to_owned(),
+        destination: to.as_ref().to_path_buf(),
+    })
 }

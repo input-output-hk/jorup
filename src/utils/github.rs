@@ -1,23 +1,7 @@
 use super::download::download_to_reader;
 use semver::{SemVerError, Version, VersionReq};
 use serde::Deserialize;
-
-error_chain! {
-    errors {
-        CannotGetReleaseData {
-            description("failed to fetch releases")
-        }
-
-        MalformedReleaseData {
-            description("cannot parse the release data")
-        }
-
-        ReleaseNotFound(version: String) {
-            description("release not found for the given contraints")
-            display("no release matching {}", version)
-        }
-    }
-}
+use thiserror::Error;
 
 pub struct Release {
     version: Version,
@@ -40,17 +24,25 @@ struct AssetDef {
     name: String,
 }
 
-pub fn find_matching_release(version_req: &VersionReq) -> Result<Release> {
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Failed to fetch releases")]
+    CannotGetReleaseData(#[from] reqwest::Error),
+    #[error("Cannot parse the release data")]
+    MalformedReleaseData(#[from] serde_json::Error),
+    #[error("No release matching {0}")]
+    ReleaseNotFound(VersionReq),
+}
+
+pub fn find_matching_release(version_req: &VersionReq) -> Result<Release, Error> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
     download_to_reader(
         "GitHub releases",
         "https://api.github.com/repos/input-output-hk/jormungandr/releases",
         &mut releases_data_raw,
-    )
-    .chain_err(|| ErrorKind::CannotGetReleaseData)?;
+    )?;
 
-    let releases: ReleasesDef =
-        serde_json::from_slice(&releases_data_raw).chain_err(|| ErrorKind::MalformedReleaseData)?;
+    let releases: ReleasesDef = serde_json::from_slice(&releases_data_raw)?;
 
     let release = releases
         .0
@@ -67,9 +59,7 @@ pub fn find_matching_release(version_req: &VersionReq) -> Result<Release> {
 
     match release {
         Some(release) => Ok(release),
-        None => Err(Error::from_kind(ErrorKind::ReleaseNotFound(
-            version_req.to_string(),
-        ))),
+        None => Err(Error::ReleaseNotFound(version_req.clone())),
     }
 }
 

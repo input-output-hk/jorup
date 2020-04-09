@@ -3,8 +3,6 @@ extern crate quickcheck;
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
-#[macro_use(error_chain, bail, quick_main)]
-extern crate error_chain;
 #[macro_use(crate_name, crate_version, crate_authors, crate_description, value_t)]
 extern crate clap;
 #[macro_use(lazy_static)]
@@ -21,33 +19,31 @@ mod utils;
 mod wallet;
 
 use clap::{App, AppSettings};
+use thiserror::Error;
 
-quick_main!(run_main);
-
-error_chain! {
-    links {
-        Common(common::Error, common::ErrorKind);
-        Update(update::Error, update::ErrorKind);
-        Run(run::Error, run::ErrorKind);
-        Shutdown(shutdown::Error, shutdown::ErrorKind);
-        Info(info::Error, info::ErrorKind);
-        Wallet(wallet::Error, wallet::ErrorKind);
-        Setup(setup::Error, setup::ErrorKind);
-    }
-
-    errors {
-        NoCommand {
-            description("No commands, try '--help' for more information")
-        }
-
-        UnknownCommand (cmd: String) {
-            description("Unknown command"),
-            display("Unknown command '{}', try '--help' to see full list of commands", cmd),
-        }
-    }
+#[derive(Debug, Error)]
+enum Error {
+    #[error(transparent)]
+    Common(#[from] common::Error),
+    #[error(transparent)]
+    Update(#[from] update::Error),
+    #[error(transparent)]
+    Run(#[from] run::Error),
+    #[error(transparent)]
+    Shutdown(#[from] shutdown::Error),
+    #[error(transparent)]
+    Info(#[from] info::Error),
+    #[error(transparent)]
+    Wallet(#[from] wallet::Error),
+    #[error(transparent)]
+    Setup(#[from] setup::Error),
+    #[error("No command given")]
+    NoCommand,
+    #[error("Unknown command `{0}`")]
+    UnknownCommand(String),
 }
 
-fn run_main() -> Result<()> {
+fn run_main() -> Result<(), Error> {
     let mut app = App::new(crate_name!())
         .settings(&[AppSettings::ColorAuto, AppSettings::VersionlessSubcommands])
         .version(crate_version!())
@@ -85,11 +81,31 @@ fn run_main() -> Result<()> {
         (setup::arg::name::COMMAND, matches) => setup::run(cfg, matches.unwrap())?,
         (cmd, _) => {
             if cmd.is_empty() {
-                bail!(ErrorKind::NoCommand)
+                return Err(Error::NoCommand);
             }
-            bail!(ErrorKind::UnknownCommand(cmd.to_owned()))
+            return Err(Error::UnknownCommand(cmd.to_owned()));
         }
     }
 
     Ok(())
+}
+
+fn main() {
+    use std::error::Error;
+
+    if let Err(error) = run_main() {
+        eprintln!("{}", error);
+        let mut source = error.source();
+        while let Some(err) = source {
+            eprintln!(" |-> {}", err);
+            source = err.source();
+        }
+
+        // TODO: https://github.com/rust-lang/rust/issues/43301
+        //
+        // as soon as #43301 is stabilized it would be nice to no use
+        // `exit` but the more appropriate:
+        // https://doc.rust-lang.org/stable/std/process/trait.Termination.html
+        std::process::exit(1);
+    }
 }

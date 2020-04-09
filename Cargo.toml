@@ -9,7 +9,6 @@ repository = "https://github.com/input-output-hk/jorup"
 homepage = "https://github.com/input-output-hk/jorup#README.md"
 
 [dependencies]
-error-chain = '0.12'
 console = "0.9"
 dialoguer = "0.4"
 dirs = "2.0"
@@ -26,6 +25,7 @@ semver = { version = "0.9.0", features = ["serde"] }
 indicatif = "0.14"
 chrono = "0.4"
 poldercast = "0.11"
+thiserror = "1.0"
 
 [dependencies.reqwest]
 version = "0.10.4"

@@ -3,7 +3,7 @@ use crate::{
     utils::{channel::Channel, download_file, release::Release},
 };
 use clap::ArgMatches;
-use semver::Version;
+use thiserror::Error;
 
 pub mod arg {
     use crate::utils::channel::Channel;
@@ -26,33 +26,31 @@ pub mod arg {
     }
 }
 
-error_chain! {
-    errors {
-        Release (version: Version) {
-            description("Error with the release"),
-            display("Error with release: {}", version),
-        }
-    }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Error while syncing releases and channels, no internet? try `--offline`...")]
+    SyncFailed(#[source] crate::common::Error),
+    #[error("Cannot run the node without valid channel")]
+    NoValidChannel(#[source] crate::utils::channel::Error),
+    #[error("Cannot run without compatible release")]
+    NoCompatibleRelease(#[source] crate::utils::release::Error),
+    #[error("Cannot download and install an update")]
+    CannotUpdate(#[source] crate::utils::download::Error),
+    #[error("cannot save default channel")]
+    CannotSaveDefaultChannel(#[source] crate::common::Error),
 }
 
-pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
-    cfg.sync_jorfile().chain_err(|| {
-        "Error while syncing releases and channels, no internet? try `--offline`..."
-    })?;
+pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<(), Error> {
+    cfg.sync_jorfile().map_err(Error::SyncFailed)?;
 
     let make_default = matches.is_present(arg::name::MAKE_DEFAULT);
 
     // prepare entry directory
-    let channel = Channel::load(&mut cfg, matches)
-        .chain_err(|| "Cannot run the node without valid channel")?;
-    channel
-        .prepare()
-        .chain_err(|| "Cannot run the node without valid channel")?;
+    let channel = Channel::load(&mut cfg, matches).map_err(Error::NoValidChannel)?;
+    channel.prepare().map_err(Error::NoValidChannel)?;
     let release = Release::new(&mut cfg, channel.jormungandr_version_req())
-        .chain_err(|| "Cannot run without compatible release")?;
-    let asset = release
-        .asset_remote()
-        .chain_err(|| ErrorKind::Release(release.version().clone()))?;
+        .map_err(Error::NoCompatibleRelease)?;
+    let asset = release.asset_remote().map_err(Error::NoCompatibleRelease)?;
 
     if release.asset_need_fetched() && !cfg.offline() {
         download_file(
@@ -60,20 +58,18 @@ pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<()> {
             &asset.as_ref(),
             release.get_asset(),
         )
-        .chain_err(|| "Cannot download and install update")?;
+        .map_err(Error::CannotUpdate)?;
         println!("**** asset downloaded");
     }
 
-    release
-        .asset_open()
-        .chain_err(|| ErrorKind::Release(release.version().clone()))?;
+    release.asset_open().map_err(Error::NoCompatibleRelease)?;
 
     if make_default {
         release
             .make_default(&cfg)
-            .chain_err(|| ErrorKind::Release(release.version().clone()))?;
+            .map_err(Error::NoCompatibleRelease)?;
         cfg.set_default_channel(channel.channel_version().clone())
-            .chain_err(|| "cannot save default channel")?;
+            .map_err(Error::CannotSaveDefaultChannel)?;
     }
 
     println!(

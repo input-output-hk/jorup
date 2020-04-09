@@ -2,11 +2,30 @@ use crate::common::JorupConfig;
 use clap::ArgMatches;
 use std::{
     env::{self, consts::EXE_SUFFIX},
-    fs,
+    fs, io,
     path::{Path, PathBuf},
 };
+use thiserror::Error;
 
-error_chain! {}
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("No command given")]
+    NoCommand,
+    #[error("Unknown command `{0}`")]
+    UnknownCommand(String),
+    #[error("jorup already installed")]
+    AlreadyInstalled,
+    #[error("Cannot get the current executable for the installer")]
+    NoInstallerExecutable(#[source] io::Error),
+    #[error("Cannot install jorup in {1}")]
+    Install(#[source] io::Error, PathBuf),
+    #[error("Cannot set permissions for {1}")]
+    Permissions(#[source] io::Error, PathBuf),
+    #[error("Cannot read file {1}")]
+    Read(#[source] io::Error, PathBuf),
+    #[error("Cannot write to file {1}")]
+    Write(#[source] io::Error, PathBuf),
+}
 
 pub mod arg {
     use clap::{App, Arg, SubCommand};
@@ -36,21 +55,21 @@ pub mod arg {
     }
 }
 
-pub fn run<'a>(cfg: JorupConfig, args: &ArgMatches<'a>) -> Result<()> {
+pub fn run<'a>(cfg: JorupConfig, args: &ArgMatches<'a>) -> Result<(), Error> {
     match args.subcommand() {
         ("update", matches) => update(cfg, matches),
         ("uninstall", matches) => uninstall(cfg, matches),
         ("install", matches) => install(cfg, matches),
         (cmd, _) => {
             if cmd.is_empty() {
-                bail!("No command given")
+                return Err(Error::NoCommand);
             }
-            bail!(format!("Unknown command {}", cmd))
+            Err(Error::UnknownCommand(cmd.to_owned()))
         }
     }
 }
 
-pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()> {
+pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<(), Error> {
     let no_modify_path = args
         .map(|args| args.is_present("NO_MODIFY_PATH"))
         .unwrap_or(false);
@@ -69,42 +88,40 @@ pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()
                 .unwrap();
 
         if !force {
-            bail!(format!("jorup already installed: {}", jorup_file.display()))
+            return Err(Error::AlreadyInstalled);
         }
     }
 
-    let jorup_current = std::env::current_exe()
-        .chain_err(|| "Cannot get the current executable for the installer")?;
+    let jorup_current = std::env::current_exe().map_err(Error::NoInstallerExecutable)?;
     std::fs::copy(&jorup_current, &jorup_file)
-        .chain_err(|| format!("Cannot install jorup in {}", jorup_file.display()))?;
-    make_executable(&jorup_file).chain_err(|| "Cannot make installed bin executable")?;
+        .map_err(|e| Error::Install(e, jorup_file.clone()))?;
+    make_executable(&jorup_file)?;
 
     if !no_modify_path {
-        do_add_to_path(&cfg, &get_add_path_methods()).chain_err(|| "Cannot update the PATH")?;
+        do_add_to_path(&cfg, &get_add_path_methods())?;
     }
 
     Ok(())
 }
 
-pub fn uninstall<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()> {
+pub fn uninstall<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<(), Error> {
     unimplemented!()
 }
 
-pub fn update<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()> {
+pub fn update<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<(), Error> {
     unimplemented!()
 }
 
-pub fn make_executable(path: &Path) -> Result<()> {
+pub fn make_executable(path: &Path) -> Result<(), Error> {
     #[cfg(windows)]
-    fn inner(_: &Path) -> Result<()> {
+    fn inner(_: &Path) -> Result<(), Error> {
         Ok(())
     }
     #[cfg(not(windows))]
-    fn inner(path: &Path) -> Result<()> {
+    fn inner(path: &Path) -> Result<(), Error> {
         use std::os::unix::fs::PermissionsExt;
 
-        let metadata = fs::metadata(path)
-            .chain_err(|| format!("Cannot set permission to {}", path.display()))?;
+        let metadata = fs::metadata(path).map_err(|e| Error::Permissions(e, path.to_path_buf()))?;
         let mut perms = metadata.permissions();
         let mode = perms.mode();
         let new_mode = (mode & !0o777) | 0o755;
@@ -120,9 +137,8 @@ pub fn make_executable(path: &Path) -> Result<()> {
     inner(path)
 }
 
-pub fn set_permissions(path: &Path, perms: fs::Permissions) -> Result<()> {
-    fs::set_permissions(path, perms)
-        .chain_err(|| format!("Cannot set permissions to {}", path.display()))
+pub fn set_permissions(path: &Path, perms: fs::Permissions) -> Result<(), Error> {
+    fs::set_permissions(path, perms).map_err(|e| Error::Permissions(e, path.to_path_buf()))
 }
 
 #[derive(PartialEq)]
@@ -164,19 +180,18 @@ fn get_add_path_methods() -> Vec<PathUpdateMethod> {
     rcfiles.map(PathUpdateMethod::RcFile).collect()
 }
 
-fn shell_export_string(cfg: &JorupConfig) -> Result<String> {
+fn shell_export_string(cfg: &JorupConfig) -> Result<String, Error> {
     let path = cfg.bin_dir().display().to_string();
     // The path is *pre-pended* in case there are system-installed
     Ok(format!(r#"export PATH="{}:$PATH""#, path))
 }
 
 #[cfg(unix)]
-fn do_add_to_path(cfg: &JorupConfig, methods: &[PathUpdateMethod]) -> Result<()> {
+fn do_add_to_path(cfg: &JorupConfig, methods: &[PathUpdateMethod]) -> Result<(), Error> {
     for method in methods {
         if let PathUpdateMethod::RcFile(ref rcpath) = *method {
             let file = if rcpath.exists() {
-                fs::read_to_string(rcpath)
-                    .chain_err(|| format!("Cannot read {}", rcpath.display()))?
+                fs::read_to_string(rcpath).map_err(|e| Error::Read(e, rcpath.clone()))?
             } else {
                 String::new()
             };
@@ -187,15 +202,10 @@ fn do_add_to_path(cfg: &JorupConfig, methods: &[PathUpdateMethod]) -> Result<()>
                     .create(true)
                     .append(true)
                     .open(rcpath)
-                    .chain_err(|| {
-                        format!(
-                            "Cannot open file to write the Path in: {}",
-                            rcpath.display()
-                        )
-                    })?;
+                    .map_err(|e| Error::Write(e, rcpath.clone()))?;
                 writer
                     .write_all(addition.as_bytes())
-                    .chain_err(|| format!("Cannot append PATH in {}", rcpath.display()))?;
+                    .map_err(|e| Error::Write(e, rcpath.clone()))?;
             }
         } else {
             unreachable!()
@@ -206,6 +216,6 @@ fn do_add_to_path(cfg: &JorupConfig, methods: &[PathUpdateMethod]) -> Result<()>
 }
 
 #[cfg(windows)]
-fn do_add_to_path(_cfg: &JorupConfig, _methods: &[PathUpdateMethod]) -> Result<()> {
-    bail!("Windows support not fully implemented yet")
+fn do_add_to_path(_cfg: &JorupConfig, _methods: &[PathUpdateMethod]) -> Result<(), Error> {
+    unimplemented!()
 }

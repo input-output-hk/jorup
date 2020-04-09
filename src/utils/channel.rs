@@ -1,10 +1,13 @@
 use crate::common::JorupConfig;
 use crate::jorfile::PartialChannelDesc;
-use error_chain::ChainedError as _;
 use semver::VersionReq;
-use std::path::{Path, PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
+use thiserror::Error;
 
-error_chain! {}
+const CHANNEL_NAME: &str = "CHANNEL_NAME";
 
 pub struct Channel {
     entry: crate::jorfile::Entry,
@@ -13,7 +16,17 @@ pub struct Channel {
     path: PathBuf,
 }
 
-const CHANNEL_NAME: &str = "CHANNEL_NAME";
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("No jorfile... Cannot operate")]
+    NoJorfile(#[source] crate::common::Error),
+    #[error("No entry available for the given version")]
+    NoEntry,
+    #[error("Cannot create directory: {1}")]
+    CannotCreateDirectory(#[source] io::Error, PathBuf),
+    #[error("Cannot write to file: {1}")]
+    CannotWriteFile(#[source] io::Error, PathBuf),
+}
 
 impl Channel {
     pub fn arg<'a, 'b>() -> clap::Arg<'a, 'b>
@@ -26,17 +39,18 @@ impl Channel {
             .validator(|s: String| {
                 s.parse::<PartialChannelDesc>()
                     .map(|_channel| ())
-                    .map_err(|err| err.display_chain().to_string())
+                    .map_err(|err| format!("{}", err))
             })
     }
 
-    pub fn load<'a, 'b>(cfg: &'b mut JorupConfig, args: &clap::ArgMatches<'a>) -> Result<Self> {
+    pub fn load<'a, 'b>(
+        cfg: &'b mut JorupConfig,
+        args: &clap::ArgMatches<'a>,
+    ) -> Result<Self, Error> {
         let mut channel_entered = cfg.current_channel().clone();
 
         let entry = if let Some(channel) = args.value_of(CHANNEL_NAME) {
-            let jor = cfg
-                .load_jor()
-                .chain_err(|| "No jorfile... cannot operate")?;
+            let jor = cfg.load_jor().map_err(Error::NoJorfile)?;
 
             // should be save to unwrap as we have set a validator in the Argument
             // for the CLI to check it is valid
@@ -48,15 +62,13 @@ impl Channel {
                 .last()
                 .cloned()
         } else {
-            cfg.current_entry()
-                .chain_err(|| "No jorfile... cannot operate")?
-                .cloned()
+            cfg.current_entry().map_err(Error::NoJorfile)?.cloned()
         };
 
         if let Some(entry) = entry {
             Self::new(cfg, entry.clone(), channel_entered)
         } else {
-            bail!("No entry available for the given version")
+            Err(Error::NoEntry)
         }
     }
 
@@ -64,13 +76,13 @@ impl Channel {
         cfg: &JorupConfig,
         entry: crate::jorfile::Entry,
         channel_version: PartialChannelDesc,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let path = cfg
             .channel_dir()
             .join(entry.channel().channel().to_string())
             .join(entry.channel().date().to_string());
         std::fs::create_dir_all(&path)
-            .chain_err(|| format!("Error while creating directory '{}'", path.display()))?;
+            .map_err(|e| Error::CannotCreateDirectory(e, path.clone()))?;
         Ok(Channel {
             entry,
             version: channel_version,
@@ -82,15 +94,15 @@ impl Channel {
         &self.version
     }
 
-    pub fn prepare(&self) -> Result<()> {
+    pub fn prepare(&self) -> Result<(), Error> {
         self.install_block0_hash()
     }
 
-    fn install_block0_hash(&self) -> Result<()> {
+    fn install_block0_hash(&self) -> Result<(), Error> {
         let path = self.get_genesis_block_hash();
         let content = self.entry().genesis().block0_hash();
 
-        write_all_to(&path, content).chain_err(|| format!("with file {}", path.display()))
+        write_all_to(&path, content).map_err(|e| Error::CannotWriteFile(e, path))
     }
 
     pub fn jormungandr_version_req(&self) -> &VersionReq {
