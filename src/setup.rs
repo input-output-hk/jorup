@@ -1,18 +1,31 @@
 use crate::common::JorupConfig;
-use clap::ArgMatches;
 use std::{
     env::{self, consts::EXE_SUFFIX},
     fs, io,
     path::{Path, PathBuf},
 };
+use structopt::StructOpt;
 use thiserror::Error;
+
+/// Operations for 'jorup'
+#[derive(Debug, StructOpt)]
+pub enum Command {
+    Install {
+        /// Don't change the local PATH variables
+        #[structopt(long)]
+        no_modify_path: bool,
+
+        /// Even if a previous installed jorup is already installed, install
+        /// this new version.
+        #[structopt(short, long)]
+        force: bool,
+    },
+    Update,
+    Uninstall,
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("No command given")]
-    NoCommand,
-    #[error("Unknown command `{0}`")]
-    UnknownCommand(String),
     #[error("jorup already installed")]
     AlreadyInstalled,
     #[error("Cannot get the current executable for the installer")]
@@ -27,56 +40,20 @@ pub enum Error {
     Write(#[source] io::Error, PathBuf),
 }
 
-pub mod arg {
-    use clap::{App, Arg, SubCommand};
-
-    pub mod name {
-        pub const COMMAND: &str = "self";
-    }
-
-    pub fn commands<'a, 'b>() -> App<'a, 'b> {
-        SubCommand::with_name(name::COMMAND)
-            .about("operations for 'jorup'")
-            .subcommand(
-                SubCommand::with_name("install").arg(
-                    Arg::with_name("NO_MODIFY_PATH")
-                        .long("no-modify-path")
-                        .help("Don't change the local PATH variables"),
-                )
-                .arg(
-                    Arg::with_name("FORCE_INSTALL")
-                        .long("force")
-                        .short("f")
-                        .help("Even if a previous installed jorup is already installed, install this new version")
-                )
-            )
-            .subcommand(SubCommand::with_name("update"))
-            .subcommand(SubCommand::with_name("uninstall").alias("remove"))
-    }
-}
-
-pub fn run<'a>(cfg: JorupConfig, args: &ArgMatches<'a>) -> Result<(), Error> {
-    match args.subcommand() {
-        ("update", matches) => update(cfg, matches),
-        ("uninstall", matches) => uninstall(cfg, matches),
-        ("install", matches) => install(cfg, matches),
-        (cmd, _) => {
-            if cmd.is_empty() {
-                return Err(Error::NoCommand);
-            }
-            Err(Error::UnknownCommand(cmd.to_owned()))
+impl Command {
+    pub fn run(self, cfg: JorupConfig) -> Result<(), Error> {
+        match self {
+            Command::Install {
+                no_modify_path,
+                force,
+            } => install(cfg, no_modify_path, force),
+            Command::Update => update(cfg),
+            Command::Uninstall => uninstall(cfg),
         }
     }
 }
 
-pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<(), Error> {
-    let no_modify_path = args
-        .map(|args| args.is_present("NO_MODIFY_PATH"))
-        .unwrap_or(false);
-    let force = args
-        .map(|args| args.is_present("FORCE_INSTALL"))
-        .unwrap_or(false);
-
+pub fn install(cfg: JorupConfig, no_modify_path: bool, force: bool) -> Result<(), Error> {
     let bin_dir = cfg.bin_dir();
     let jorup_file = bin_dir.join(format!("jorup{}", EXE_SUFFIX));
 
@@ -104,11 +81,11 @@ pub fn install<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<()
     Ok(())
 }
 
-pub fn uninstall<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<(), Error> {
+pub fn uninstall(cfg: JorupConfig) -> Result<(), Error> {
     unimplemented!()
 }
 
-pub fn update<'a>(cfg: JorupConfig, args: Option<&ArgMatches<'a>>) -> Result<(), Error> {
+pub fn update(cfg: JorupConfig) -> Result<(), Error> {
     unimplemented!()
 }
 

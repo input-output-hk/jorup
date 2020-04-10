@@ -7,8 +7,6 @@ use std::{
 };
 use thiserror::Error;
 
-const CHANNEL_NAME: &str = "CHANNEL_NAME";
-
 pub struct Channel {
     entry: crate::jorfile::Entry,
     version: PartialChannelDesc,
@@ -29,27 +27,10 @@ pub enum Error {
 }
 
 impl Channel {
-    pub fn arg<'a, 'b>() -> clap::Arg<'a, 'b>
-    where
-        'a: 'b,
-    {
-        clap::Arg::with_name(CHANNEL_NAME)
-            .value_name("CHANNEL")
-            .help("The channel to run jormungandr for, jorup uses the default channel otherwise")
-            .validator(|s: String| {
-                s.parse::<PartialChannelDesc>()
-                    .map(|_channel| ())
-                    .map_err(|err| format!("{}", err))
-            })
-    }
-
-    pub fn load<'a, 'b>(
-        cfg: &'b mut JorupConfig,
-        args: &clap::ArgMatches<'a>,
-    ) -> Result<Self, Error> {
+    pub fn load(cfg: &mut JorupConfig, channel_name: Option<String>) -> Result<Self, Error> {
         let mut channel_entered = cfg.current_channel().clone();
 
-        let entry = if let Some(channel) = args.value_of(CHANNEL_NAME) {
+        let entry = if let Some(channel) = channel_name {
             let jor = cfg.load_jor().map_err(Error::NoJorfile)?;
 
             // should be save to unwrap as we have set a validator in the Argument

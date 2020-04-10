@@ -2,28 +2,18 @@ use crate::{
     common::JorupConfig, utils::channel::Channel, utils::release::Release,
     utils::runner::RunnerControl,
 };
-use clap::ArgMatches;
+use structopt::StructOpt;
 use thiserror::Error;
 
-pub mod arg {
-    use crate::utils::channel::Channel;
-    use clap::{App, Arg, SubCommand};
+/// Wallet operations
+#[derive(Debug, StructOpt)]
+pub struct Command {
+    /// The channel to run jormungandr for, jorup uses the default channel otherwise
+    channel: Option<String>,
 
-    pub mod name {
-        pub const COMMAND: &str = "wallet";
-    }
-
-    pub fn command<'a, 'b>() -> App<'a, 'b> {
-        SubCommand::with_name(name::COMMAND)
-            .about("wallet operations")
-            .arg(Channel::arg())
-            .arg(
-                Arg::with_name("FORCE_CREATE_WALLET")
-                    .long("force-create")
-                    .alias("force")
-                    .help("force re-creating a wallet if it does exists already"),
-            )
-    }
+    /// Force re-creating a wallet if it does exists already
+    #[structopt(long)]
+    force_create_wallet: bool,
 }
 
 #[derive(Debug, Error)]
@@ -42,32 +32,32 @@ pub enum Error {
     CannotGetAddress(#[source] crate::utils::runner::Error),
 }
 
-pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<(), Error> {
-    let force_new = matches.is_present("FORCE_CREATE_WALLET");
+impl Command {
+    pub fn run(self, mut cfg: JorupConfig) -> Result<(), Error> {
+        // prepare entry directory
+        let channel = Channel::load(&mut cfg, self.channel).map_err(Error::NoValidChannel)?;
+        channel.prepare().map_err(Error::NoValidChannel)?;
 
-    // prepare entry directory
-    let channel = Channel::load(&mut cfg, matches).map_err(Error::NoValidChannel)?;
-    channel.prepare().map_err(Error::NoValidChannel)?;
+        let release = Release::new(&mut cfg, channel.jormungandr_version_req())
+            .map_err(Error::NoCompatibleRelease)?;
 
-    let release = Release::new(&mut cfg, channel.jormungandr_version_req())
-        .map_err(Error::NoCompatibleRelease)?;
+        if release.asset_need_fetched() {
+            // asset release is not available
+            return Err(Error::NoCompatibleBinaries);
+        }
 
-    if release.asset_need_fetched() {
-        // asset release is not available
-        return Err(Error::NoCompatibleBinaries);
+        let mut runner =
+            RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
+
+        runner
+            .get_wallet_secret_key(self.force_create_wallet)
+            .map_err(Error::CannotCreateWallet)?;
+        let address = runner
+            .get_wallet_address()
+            .map_err(Error::CannotGetAddress)?;
+
+        println!("Wallet: {}", address);
+
+        Ok(())
     }
-
-    let mut runner =
-        RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
-
-    runner
-        .get_wallet_secret_key(force_new)
-        .map_err(Error::CannotCreateWallet)?;
-    let address = runner
-        .get_wallet_address()
-        .map_err(Error::CannotGetAddress)?;
-
-    println!("Wallet: {}", address);
-
-    Ok(())
 }

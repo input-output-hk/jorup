@@ -36,13 +36,9 @@ pub enum Error {
     Json(#[source] serde_json::Error, PathBuf),
     #[error("Cannot remove running file")]
     CannotRemoveRunnerFile(#[source] io::Error),
-    #[error(
-        "Invalid version for jormungandr, Version ({0}) does not match requirement `{1}`"
-    )]
+    #[error("Invalid version for jormungandr, Version ({0}) does not match requirement `{1}`")]
     InvalidJormungandrVersion(Version, VersionReq),
-    #[error(
-        "Invalid version for jcli, Version ({0}) does not match requirement `{1}`",
-    )]
+    #[error("Invalid version for jcli, Version ({0}) does not match requirement `{1}`")]
     InvalidJcliVersion(Version, VersionReq),
     #[error("Cannot start jormungandr")]
     CannotStartJormungandr(#[source] io::Error),
@@ -236,7 +232,7 @@ rest:
         Ok(cmd)
     }
 
-    pub fn spawn(&mut self, parameters: &[&str]) -> Result<(), Error> {
+    pub fn spawn(&mut self, parameters: Vec<String>) -> Result<(), Error> {
         let mut cmd = self.prepare()?;
         cmd.args(parameters);
 
@@ -266,7 +262,7 @@ rest:
         Ok(())
     }
 
-    pub fn run(mut self, parameters: &[&str]) -> Result<(), Error> {
+    pub fn run(mut self, parameters: Vec<String>) -> Result<(), Error> {
         let mut cmd = self.prepare()?;
         cmd.args(parameters);
         let mut child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;

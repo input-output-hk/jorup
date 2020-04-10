@@ -2,8 +2,15 @@ use crate::{
     common::JorupConfig, utils::channel::Channel, utils::release::Release,
     utils::runner::RunnerControl,
 };
-use clap::ArgMatches;
+use structopt::StructOpt;
 use thiserror::Error;
+
+/// Get running node's info
+#[derive(Debug, StructOpt)]
+pub struct Command {
+    /// The channel to run jormungandr for, jorup uses the default channel otherwise
+    channel: Option<String>,
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -19,37 +26,23 @@ pub enum Error {
     CannotCollectInfo(#[source] crate::utils::runner::Error),
 }
 
-pub mod arg {
-    use crate::utils::channel::Channel;
-    use clap::{App, SubCommand};
+impl Command {
+    pub fn run(self, mut cfg: JorupConfig) -> Result<(), Error> {
+        let channel = Channel::load(&mut cfg, self.channel).map_err(Error::NoValidChannel)?;
+        channel.prepare().map_err(Error::NoValidChannel)?;
 
-    pub mod name {
-        pub const COMMAND: &str = "info";
+        let release = Release::new(&mut cfg, channel.jormungandr_version_req())
+            .map_err(Error::NoCompatibleRelease)?;
+
+        if release.asset_need_fetched() {
+            // asset release is not available
+            return Err(Error::NoCompatibleBinaries);
+        }
+
+        let mut runner =
+            RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
+
+        runner.settings().map_err(Error::CannotCollectInfo)?;
+        runner.info().map_err(Error::CannotCollectInfo)
     }
-
-    pub fn command<'a, 'b>() -> App<'a, 'b> {
-        SubCommand::with_name(name::COMMAND)
-            .about("get running node's info")
-            .arg(Channel::arg())
-    }
-}
-
-pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<(), Error> {
-    // prepare entry directory
-    let channel = Channel::load(&mut cfg, matches).map_err(Error::NoValidChannel)?;
-    channel.prepare().map_err(Error::NoValidChannel)?;
-
-    let release = Release::new(&mut cfg, channel.jormungandr_version_req())
-        .map_err(Error::NoCompatibleRelease)?;
-
-    if release.asset_need_fetched() {
-        // asset release is not available
-        return Err(Error::NoCompatibleBinaries);
-    }
-
-    let mut runner =
-        RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
-
-    runner.settings().map_err(Error::CannotCollectInfo)?;
-    runner.info().map_err(Error::CannotCollectInfo)
 }

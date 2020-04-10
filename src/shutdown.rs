@@ -2,23 +2,14 @@ use crate::{
     common::JorupConfig, utils::channel::Channel, utils::release::Release,
     utils::runner::RunnerControl,
 };
-use clap::ArgMatches;
+use structopt::StructOpt;
 use thiserror::Error;
 
-pub mod arg {
-    use crate::utils::channel::Channel;
-    use clap::{App, SubCommand};
-
-    pub mod name {
-        pub const COMMAND: &str = "shutdown";
-    }
-
-    pub fn command<'a, 'b>() -> App<'a, 'b> {
-        SubCommand::with_name(name::COMMAND)
-            .alias("stop")
-            .about("Stop jormungandr")
-            .arg(Channel::arg())
-    }
+/// Stop jormungandr
+#[derive(Debug, StructOpt)]
+pub struct Command {
+    /// The channel to run jormungandr for, jorup uses the default channel otherwise
+    channel: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -35,21 +26,23 @@ pub enum Error {
     ShutdownError(#[source] crate::utils::runner::Error),
 }
 
-pub fn run<'a>(mut cfg: JorupConfig, matches: &ArgMatches<'a>) -> Result<(), Error> {
-    // prepare entry directory
-    let channel = Channel::load(&mut cfg, matches).map_err(Error::NoValidChannel)?;
-    channel.prepare().map_err(Error::NoValidChannel)?;
+impl Command {
+    pub fn run(self, mut cfg: JorupConfig) -> Result<(), Error> {
+        // prepare entry directory
+        let channel = Channel::load(&mut cfg, self.channel).map_err(Error::NoValidChannel)?;
+        channel.prepare().map_err(Error::NoValidChannel)?;
 
-    let release = Release::new(&mut cfg, channel.jormungandr_version_req())
-        .map_err(Error::NoCompatibleRelease)?;
+        let release = Release::new(&mut cfg, channel.jormungandr_version_req())
+            .map_err(Error::NoCompatibleRelease)?;
 
-    if release.asset_need_fetched() {
-        // asset release is not available
-        return Err(Error::NoCompatibleBinaries);
+        if release.asset_need_fetched() {
+            // asset release is not available
+            return Err(Error::NoCompatibleBinaries);
+        }
+
+        let mut runner =
+            RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
+
+        runner.shutdown().map_err(Error::ShutdownError)
     }
-
-    let mut runner =
-        RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
-
-    runner.shutdown().map_err(Error::ShutdownError)
 }

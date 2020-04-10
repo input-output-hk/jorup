@@ -3,10 +3,6 @@ extern crate quickcheck;
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
-#[macro_use(crate_name, crate_version, crate_authors, crate_description, value_t)]
-extern crate clap;
-#[macro_use(lazy_static)]
-extern crate lazy_static;
 
 mod common;
 mod info;
@@ -18,10 +14,60 @@ mod update;
 mod utils;
 mod wallet;
 
-use clap::{App, AppSettings};
+use std::path::PathBuf;
+use structopt::StructOpt;
 use thiserror::Error;
 
-const TARGET: &str = env!("TARGET");
+#[derive(Debug, StructOpt)]
+struct RootCmd {
+    /// Set the home directory for jorup
+    ///
+    /// Set the directory path where jorup will install the different releases
+    /// or different channels. Mainly remember to set `$JORUP_HOME/bin` value to
+    /// your $PATH for easy access to the default release's tools.
+    #[structopt(long)]
+    jorup_home: Option<PathBuf>,
+
+    /// Don't use the jor file from from local setting but use given one
+    ///
+    /// This is not to be used lightly as it may put your local jor in an
+    /// invalid state. Instead of fetching the jorfile from the network and/or
+    /// to use the local one, use a specific file. This is useful only for
+    /// testing. This option does not imply offline.
+    #[structopt(long)]
+    jorfile: Option<PathBuf>,
+
+    /// Don't query the release server to update the index
+    ///
+    /// Try only to work with the current states and values. Do not attempt to
+    /// update the known releases and testnets. This may make your system to
+    /// fail to install specific releases if they are not already cached
+    /// locally.
+    #[structopt(long)]
+    offline: bool,
+
+    #[structopt(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, StructOpt)]
+enum Command {
+    /// Generate autocompletion scripts for the given <SHELL>
+    ///
+    /// Generate the autocompletion scripts for the given shell, Autocompletion
+    /// will be written in the standard output and can then be pasted by the
+    /// user to the appropriate place.
+    Completions {
+        shell: structopt::clap::Shell,
+    },
+
+    Run(run::Command),
+    Shutdown(shutdown::Command),
+    Info(info::Command),
+    Wallet(wallet::Command),
+    Setup(setup::Command),
+    Update(update::Command),
+}
 
 #[derive(Debug, Error)]
 enum Error {
@@ -39,63 +85,36 @@ enum Error {
     Wallet(#[from] wallet::Error),
     #[error(transparent)]
     Setup(#[from] setup::Error),
-    #[error("No command given")]
-    NoCommand,
-    #[error("Unknown command `{0}`")]
-    UnknownCommand(String),
 }
 
-fn run_main() -> Result<(), Error> {
-    let mut app = App::new(crate_name!())
-        .settings(&[AppSettings::ColorAuto, AppSettings::VersionlessSubcommands])
-        .version(crate_version!())
-        .about(crate_description!())
-        .author(crate_authors!("\n"))
-        .arg(common::arg::jorup_home()?)
-        .arg(common::arg::generate_autocompletion())
-        .arg(common::arg::jor_file())
-        .arg(common::arg::offline())
-        .subcommand(run::arg::command())
-        .subcommand(shutdown::arg::command())
-        .subcommand(info::arg::command())
-        .subcommand(wallet::arg::command())
-        .subcommand(setup::arg::commands())
-        .subcommand(update::arg::command());
+impl RootCmd {
+    fn run(self) -> Result<(), Error> {
+        let cfg = common::JorupConfig::new(self.jorup_home, self.jorfile, self.offline)?;
 
-    let matches = app.clone().get_matches();
-
-    if let Some(shell) = matches.value_of(common::arg::name::GENERATE_AUTOCOMPLETION) {
-        // safe to unwrap as possible values have been validated first
-        let shell = shell.parse().unwrap();
-
-        app.gen_completions_to(crate_name!(), shell, &mut std::io::stdout());
-        return Ok(());
-    }
-
-    let cfg = common::JorupConfig::new(&matches)?;
-
-    match matches.subcommand() {
-        (update::arg::name::COMMAND, matches) => update::run(cfg, matches.unwrap())?,
-        (run::arg::name::COMMAND, matches) => run::run(cfg, matches.unwrap())?,
-        (shutdown::arg::name::COMMAND, matches) => shutdown::run(cfg, matches.unwrap())?,
-        (info::arg::name::COMMAND, matches) => info::run(cfg, matches.unwrap())?,
-        (wallet::arg::name::COMMAND, matches) => wallet::run(cfg, matches.unwrap())?,
-        (setup::arg::name::COMMAND, matches) => setup::run(cfg, matches.unwrap())?,
-        (cmd, _) => {
-            if cmd.is_empty() {
-                return Err(Error::NoCommand);
-            }
-            return Err(Error::UnknownCommand(cmd.to_owned()));
+        match self.command {
+            Command::Completions { shell } => Self::clap().gen_completions_to(
+                env!("CARGO_PKG_NAME"),
+                shell,
+                &mut std::io::stdout(),
+            ),
+            Command::Run(cmd) => cmd.run(cfg)?,
+            Command::Shutdown(cmd) => cmd.run(cfg)?,
+            Command::Info(cmd) => cmd.run(cfg)?,
+            Command::Wallet(cmd) => cmd.run(cfg)?,
+            Command::Setup(cmd) => cmd.run(cfg)?,
+            Command::Update(cmd) => cmd.run(cfg)?,
         }
-    }
 
-    Ok(())
+        Ok(())
+    }
 }
 
 fn main() {
     use std::error::Error;
 
-    if let Err(error) = run_main() {
+    let app = RootCmd::from_args();
+
+    if let Err(error) = app.run() {
         eprintln!("{}", error);
         let mut source = error.source();
         while let Some(err) = source {

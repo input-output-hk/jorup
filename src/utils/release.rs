@@ -4,6 +4,8 @@ use semver::VersionReq;
 use std::{fs::File, io, path::PathBuf};
 use thiserror::Error;
 
+const TARGET: &str = env!("TARGET");
+
 pub struct Release {
     release: github::Release,
 
@@ -119,7 +121,7 @@ impl Release {
     }
 
     pub fn asset_remote(&self) -> Result<&str, Error> {
-        match self.release.get_asset_url(crate::TARGET) {
+        match self.release.get_asset_url(TARGET) {
             Some(url) => Ok(url),
             None => Err(Error::AssetNotFound),
         }

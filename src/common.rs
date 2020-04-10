@@ -1,6 +1,5 @@
 use crate::jorfile::PartialChannelDesc;
 use crate::utils::download_file;
-use clap::ArgMatches;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, io, path::PathBuf};
 use thiserror::Error;
@@ -40,8 +39,14 @@ pub enum Error {
 }
 
 impl JorupConfig {
-    pub fn new<'a>(args: &ArgMatches<'a>) -> Result<Self, Error> {
-        let home_dir = value_t!(args, arg::name::JORUP_HOME, PathBuf).unwrap();
+    pub fn new(
+        jorup_home: Option<PathBuf>,
+        jorfile: Option<PathBuf>,
+        offline: bool,
+    ) -> Result<Self, Error> {
+        let home_dir = jorup_home
+            .or_else(|| dirs::home_dir().map(|d| d.join(".jorup")))
+            .ok_or_else(|| Error::NoHomeDir)?;
 
         let home_dir = if home_dir.is_absolute() {
             home_dir
@@ -52,17 +57,14 @@ impl JorupConfig {
         std::fs::create_dir_all(&home_dir)
             .map_err(|e| Error::CannotCreateHomeDir(e, home_dir.clone()))?;
 
-        let jor_file = if let Some(jor_file) = args.value_of(arg::name::JOR_FILE) {
-            Some(jor_file.into())
-        } else {
-            None
-        };
+        let jor_file = jorfile.map(|jor_file| jor_file.into());
+
         let mut cfg = JorupConfig {
             home_dir,
             settings: JorupSettings::default(),
             jor_file,
             jor: None,
-            offline: args.is_present(arg::name::OFFLINE),
+            offline,
         };
 
         cfg.init()?;
@@ -218,90 +220,4 @@ impl Default for JorupSettings {
             default: PartialChannelDesc::default(),
         }
     }
-}
-
-pub mod arg {
-    use super::Error;
-    use clap::Arg;
-
-    pub mod name {
-        pub const GENERATE_AUTOCOMPLETION: &str = "GENERATE_AUTOCOMPLETION";
-        pub const JORUP_HOME: &str = "JORUP_HOME";
-        pub const JOR_FILE: &str = "JOR_FILE";
-        pub const OFFLINE: &str = "JORUP_OFFLINE";
-    }
-
-    pub fn jorup_home<'a, 'b>() -> Result<Arg<'a, 'b>, Error> {
-        let arg = Arg::with_name(name::JORUP_HOME)
-            .long("jorup-home")
-            .help("Set the directory home for jorup")
-            .long_help(
-                "Set the directory path where jorup will install the different
-releases or different channels. Mainly remember to set `$JORUP_HOME/bin` value to your
-$PATH for easy access to the default release's tools
-",
-            )
-            .takes_value(true)
-            .env(name::JORUP_HOME)
-            .value_name(name::JORUP_HOME)
-            .default_value_os(super::JORUP_HOME.as_os_str())
-            .multiple(false)
-            .global(true);
-        Ok(arg)
-    }
-
-    pub fn jor_file<'a, 'b>() -> Arg<'a, 'b> {
-        Arg::with_name(name::JOR_FILE)
-            .long("jorfile")
-            .help("don't use the jor file from from local setting but use given one")
-            .long_help(
-                "This is not to be used lightly as it may put your local jor in an invalid
-state. Instead of fetching the jorfile from the network and/or to use the local one, use
-a specific file. This is useful only for testing. This option does not imply offline.",
-            )
-            .takes_value(true)
-            .value_name(name::JOR_FILE)
-            .multiple(false)
-            .hidden_short_help(true)
-            .global(true)
-    }
-
-    pub fn offline<'a, 'b>() -> Arg<'a, 'b> {
-        Arg::with_name(name::OFFLINE)
-            .long("offline")
-            .help("don't query the release server to update the index")
-            .long_help(
-                "Try only to work with the current states and values. Do not attempt to
-update the known releases and testnets. This may make your system to fail to install specific
-releases if they are not already cached locally.",
-            )
-            .multiple(false)
-            .global(true)
-    }
-
-    pub fn generate_autocompletion<'a, 'b>() -> Arg<'a, 'b> {
-        Arg::with_name(name::GENERATE_AUTOCOMPLETION)
-            .long("generate-auto-completion")
-            .help("generate autocompletion scripts for the given <SHELL>")
-            .long_help(
-                "Generate the autocompletion scripts for the given shell,
-Autocompletion will be written in the standard output and can then be pasted
-by the user to the appropriate place",
-            )
-            .takes_value(true)
-            .possible_values(&clap::Shell::variants())
-            .value_name("SHELL")
-            .multiple(false)
-            .global(true)
-    }
-}
-
-lazy_static! {
-    static ref JORUP_HOME: PathBuf = { jorup_home().unwrap() };
-}
-
-fn jorup_home() -> Result<PathBuf, Error> {
-    dirs::home_dir()
-        .map(|d| d.join(".jorup"))
-        .ok_or_else(|| Error::NoHomeDir)
 }
