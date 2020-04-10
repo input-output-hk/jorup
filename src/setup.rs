@@ -81,11 +81,11 @@ pub fn install(cfg: JorupConfig, no_modify_path: bool, force: bool) -> Result<()
     Ok(())
 }
 
-pub fn uninstall(cfg: JorupConfig) -> Result<(), Error> {
+pub fn uninstall(_cfg: JorupConfig) -> Result<(), Error> {
     unimplemented!()
 }
 
-pub fn update(cfg: JorupConfig) -> Result<(), Error> {
+pub fn update(_cfg: JorupConfig) -> Result<(), Error> {
     unimplemented!()
 }
 
