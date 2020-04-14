@@ -1,6 +1,7 @@
 use semver::VersionReq;
 use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 use std::{fmt, str};
+use thiserror::Error;
 
 /// a testnet entry in the system
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -32,7 +33,7 @@ pub struct EntryBuilder {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct TrustedPeer {
-    address: poldercast::Address,
+    address: String,
     id: String,
 }
 
@@ -156,7 +157,7 @@ impl Entry {
 }
 
 impl TrustedPeer {
-    pub fn address(&self) -> &poldercast::Address {
+    pub fn address(&self) -> &str {
         &self.address
     }
     pub fn id(&self) -> &str {
@@ -290,17 +291,12 @@ impl fmt::Display for PartialChannelDesc {
 
 /* *********************** FromStr ***************************************** */
 
-error_chain! {
-    types {
-        ChannelError, ChannelErrorKind, ChannelResult, ChannelResultExt;
-    }
-
-    errors {
-        InvalidDate(s: String) {
-            description("Invalid date component format")
-            display("Value '{}' is not a valid date, invalid date component", s)
-        }
-    }
+#[derive(Debug, Error)]
+pub enum ChannelError {
+    #[error("Value '{1}' is not a valid date, invalid date component")]
+    InvalidDate(#[source] chrono::ParseError, String),
+    #[error("Invalid channel: {0}")]
+    InvalidChannel(String),
 }
 
 impl str::FromStr for PartialChannelDesc {
@@ -322,7 +318,7 @@ impl str::FromStr for Date {
     type Err = ChannelError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chrono::naive::NaiveDate::parse_from_str(&s, CHANNEL_DATE_FORMAT)
-            .chain_err(|| ChannelErrorKind::InvalidDate(s.to_owned()))
+            .map_err(|e| ChannelError::InvalidDate(e, s.to_owned()))
             .map(|date| chrono::Date::<chrono::Utc>::from_utc(date, chrono::Utc))
             .map(Date)
     }
@@ -338,7 +334,7 @@ impl str::FromStr for Channel {
         } else if s == "nightly" {
             Ok(Channel::Nightly)
         } else {
-            bail!(format!("Invalid channel: {}", s))
+            Err(ChannelError::InvalidChannel(s.to_owned()))
         }
     }
 }
@@ -365,7 +361,7 @@ impl<'de> Deserialize<'de> for Date {
         use serde::de::Error as _;
         let s = String::deserialize(deserializer)?;
         chrono::naive::NaiveDate::parse_from_str(&s, CHANNEL_DATE_FORMAT)
-            .chain_err(|| format!("Invalid date: {}", s))
+            .map_err(|e| ChannelError::InvalidDate(e, s.to_owned()))
             .map_err(D::Error::custom)
             .map(|date| chrono::Date::<chrono::Utc>::from_utc(date, chrono::Utc))
             .map(Date)

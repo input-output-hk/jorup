@@ -1,31 +1,46 @@
 use crate::common::JorupConfig;
-use jorup_lib::{Version, VersionReq};
-use std::{fs::File, path::PathBuf};
+use crate::utils::github;
+use semver::VersionReq;
+use std::{fs::File, io, path::PathBuf};
+use thiserror::Error;
 
-error_chain! {}
+const TARGET: &str = env!("TARGET");
 
 pub struct Release {
-    release: jorup_lib::Release,
+    release: github::Release,
 
     path: PathBuf,
 }
 
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    GitHub(#[from] crate::utils::github::Error),
+    #[error("Error while creating directory: {1}")]
+    CannotCreateDirectory(#[source] io::Error, PathBuf),
+    #[error("Error while opening file: {1}")]
+    CannotOpenFile(#[source] io::Error, PathBuf),
+    #[error("Asset not found for the current platform")]
+    AssetNotFound,
+    #[cfg(unix)]
+    #[error("Cannot unpack assset: {1}")]
+    CannotUnpack(#[source] io::Error, PathBuf),
+    #[cfg(windows)]
+    #[error("Cannot unpack assset: {1}")]
+    CannotUnpack(#[source] zip::result::ZipError, PathBuf),
+}
+
 impl Release {
-    pub fn new(cfg: &mut JorupConfig, req: &VersionReq) -> Result<Self> {
-        let release = cfg
-            .load_jor()
-            .unwrap()
-            .search_release(req.clone())
-            .cloned()
-            .ok_or_else(|| format!("No release that matches `{}`", req))?;
+    pub fn new(cfg: &mut JorupConfig, req: &VersionReq) -> Result<Self, Error> {
+        let release = github::find_matching_release(req)?;
 
         let path = cfg.release_dir().join(release.version().to_string());
         std::fs::create_dir_all(&path)
-            .chain_err(|| format!("Error while creating directory '{}'", path.display()))?;
+            .map_err(|e| Error::CannotCreateDirectory(e, path.clone()))?;
         Ok(Release { release, path })
     }
 
-    pub fn make_default(&self, cfg: &JorupConfig) -> Result<()> {
+    pub fn make_default(&self, cfg: &JorupConfig) -> Result<(), Error> {
         let bin_dir = cfg.bin_dir();
 
         let install_jormungandr = bin_dir.join("jormungandr");
@@ -63,35 +78,35 @@ impl Release {
         !self.get_jormungandr().is_file() || !self.get_jcli().is_file()
     }
 
-    pub fn asset_open(&self) -> Result<()> {
+    pub fn asset_open(&self) -> Result<(), Error> {
         if !self.asset_need_open() {
             return Ok(());
         }
-        let file = File::open(self.get_asset())
-            .chain_err(|| format!("Cannot open `{}`", self.get_asset().display()))?;
+        let file =
+            File::open(self.get_asset()).map_err(|e| Error::CannotOpenFile(e, self.get_asset()))?;
         self.unpack_asset(file)
     }
 
     #[cfg(windows)]
-    fn unpack_asset(&self, file: File) -> Result<()> {
+    fn unpack_asset(&self, file: File) -> Result<(), Error> {
         let mut archive = zip::read::ZipArchive::new(file)
-            .chain_err(|| format!("cannot unpack `{}`", self.get_asset().display()))?;
+            .map_err(|e| Error::CannotUnpack(e, self.get_asset()))?;
         for i in 0..archive.len() {
             let mut file = archive
                 .by_index(i)
-                .chain_err(|| "cannot get the next file from the archive")?;
+                .map_err(|e| Error::CannotUnpack(e, self.get_asset()))?;
             let path = self.dir().join(file.name());
             let mut decompressed_file = File::create(path.clone())
-                .chain_err(|| format!("cannot write to {}", path.as_path().display()))?;
+                .map_err(|e| Error::CannotOpenFile(e, path.to_path_buf()))?;
             std::io::copy(&mut file, &mut decompressed_file)
-                .chain_err(|| format!("cannot write to {}", path.as_path().display()))?;
+                .map_err(|e| Error::CannotOpenFile(e, path.to_path_buf()))?;
         }
 
         Ok(())
     }
 
     #[cfg(unix)]
-    fn unpack_asset(&self, file: File) -> Result<()> {
+    fn unpack_asset(&self, file: File) -> Result<(), Error> {
         use flate2::read::GzDecoder;
         use tar::Archive;
 
@@ -100,24 +115,19 @@ impl Release {
         archive.set_preserve_permissions(true);
         archive
             .unpack(self.dir())
-            .chain_err(|| format!("cannot unpack `{}`", self.get_asset().display()))?;
+            .map_err(|e| Error::CannotUnpack(e, self.get_asset()))?;
 
         Ok(())
     }
 
-    pub fn asset_remote(&self) -> Result<&jorup_lib::Url> {
-        if let Some(platform) = platforms::guess_current() {
-            if let Some(asset) = self.release.assets().get(platform.target_triple) {
-                Ok(asset)
-            } else {
-                bail!(format!("No assets for host `{}`", platform.target_triple))
-            }
-        } else {
-            bail!("cannot guess host system")
+    pub fn asset_remote(&self) -> Result<&str, Error> {
+        match self.release.get_asset_url(TARGET) {
+            Some(url) => Ok(url),
+            None => Err(Error::AssetNotFound),
         }
     }
 
-    pub fn version(&self) -> &Version {
+    pub fn version(&self) -> &semver::Version {
         self.release.version()
     }
 

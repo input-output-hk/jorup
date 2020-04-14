@@ -1,15 +1,15 @@
 use crate::{utils::channel::Channel, utils::release::Release};
-use jorup_lib::Version;
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::{
-    error, fmt,
+    io,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-use tokio::prelude::*;
-use tokio_process::CommandExt as _;
+use thiserror::Error;
 
-error_chain! {}
+#[cfg(windows)]
+use std::{error, fmt};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -26,15 +26,63 @@ pub struct RunnerControl<'a, 'b> {
     jormungandr: Option<PathBuf>,
 }
 
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Cannot open file: {1}")]
+    CannotOpenFile(#[source] io::Error, PathBuf),
+    #[error("Cannot write file: {1}")]
+    CannotWriteFile(#[source] io::Error, PathBuf),
+    #[error("Cannot parse file: {1}")]
+    Json(#[source] serde_json::Error, PathBuf),
+    #[error("Cannot remove running file")]
+    CannotRemoveRunnerFile(#[source] io::Error),
+    #[error("Invalid version for jormungandr, Version ({0}) does not match requirement `{1}`")]
+    InvalidJormungandrVersion(Version, VersionReq),
+    #[error("Invalid version for jcli, Version ({0}) does not match requirement `{1}`")]
+    InvalidJcliVersion(Version, VersionReq),
+    #[error("Cannot start jormungandr")]
+    CannotStartJormungandr(#[source] io::Error),
+    #[error("No running node")]
+    NoRunningNode,
+    #[cfg(windows)]
+    #[error("Cannot check id the node is running. Error code: {0}")]
+    PidCheck(u64),
+    #[cfg(unix)]
+    #[error("Cannot check id the node is running")]
+    PidCheck(#[source] io::Error),
+    #[error("Node already running. PID: {0}")]
+    NodeRunning(u32),
+    #[error("Cannot stop running node")]
+    CannotStopNode,
+    #[error("Cannot send shutdown signal to the running node")]
+    CannotSendStopSignal(#[source] io::Error),
+    #[error("unable to create the address")]
+    AddressCreate(#[source] io::Error),
+    #[error("Invalid address")]
+    InvalidAddress(#[source] std::string::FromUtf8Error),
+    #[error("No secret key, did you mean to create a secret key too?")]
+    NoSecretKey,
+    #[error("Unable to extract the public key")]
+    ReadPublicKey(#[from] io::Error),
+    #[error("Cannot generate key {0}")]
+    GenerateKey(String),
+    #[error("Cannot get the version of {1}")]
+    GetVersion(#[source] io::Error, PathBuf),
+    #[error("Invalid output from execution of '{0} --version'")]
+    InvalidVersionOutput(#[source] std::string::FromUtf8Error, PathBuf),
+    #[error("Cannot parse the version of `{1}`: `{2}`")]
+    ParseVersion(#[source] semver::SemVerError, PathBuf, String),
+}
+
 impl<'a, 'b> RunnerControl<'a, 'b> {
-    pub fn new(channel: &'a Channel, release: &'b Release) -> Result<Self> {
+    pub fn new(channel: &'a Channel, release: &'b Release) -> Result<Self, Error> {
         let info_file = channel.get_runner_file();
 
         let info = if info_file.is_file() {
             let info = std::fs::read_to_string(&info_file)
-                .chain_err(|| format!("Cannot open file {}", info_file.display()))?;
-            let info: RunnerInfo = toml::from_str(&info)
-                .chain_err(|| format!("Cannot parse file {}", info_file.display()))?;
+                .map_err(|e| Error::CannotOpenFile(e, info_file.clone()))?;
+            let info: RunnerInfo =
+                serde_json::from_str(&info).map_err(|e| Error::Json(e, info_file))?;
 
             let is_up = check_pid(info.pid)?;
 
@@ -48,7 +96,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                     channel.get_log_file().display()
                 );
                 std::fs::remove_file(channel.get_runner_file())
-                    .chain_err(|| "Cannot remove the running file")?;
+                    .map_err(Error::CannotRemoveRunnerFile)?;
                 None
             }
         } else {
@@ -64,7 +112,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         })
     }
 
-    pub fn override_jormungandr<P>(&mut self, jormungandr: P) -> Result<()>
+    pub fn override_jormungandr<P>(&mut self, jormungandr: P) -> Result<(), Error>
     where
         P: AsRef<Path>,
     {
@@ -82,15 +130,14 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
             self.jormungandr = Some(jormungandr);
             Ok(())
         } else {
-            bail!(
-                "Invalid version for jormungandr, Version ({}) does not match requirement `{}`",
+            Err(Error::InvalidJormungandrVersion(
                 version,
-                version_req
-            )
+                version_req.clone(),
+            ))
         }
     }
 
-    pub fn jcli(&mut self) -> Result<Command> {
+    pub fn jcli(&mut self) -> Result<Command, Error> {
         if let Some(jcli) = &self.jcli {
             return Ok(Command::new(jcli));
         }
@@ -105,15 +152,11 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
             self.jcli = Some(jcli);
             Ok(cmd)
         } else {
-            bail!(
-                "Invalid version for jcli, Version ({}) does not match requirement `{}`",
-                version,
-                version_req
-            )
+            Err(Error::InvalidJcliVersion(version, version_req.clone()))
         }
     }
 
-    pub fn jormungandr(&mut self) -> Result<Command> {
+    pub fn jormungandr(&mut self) -> Result<Command, Error> {
         if let Some(jormungandr) = &self.jormungandr {
             return Ok(Command::new(jormungandr));
         }
@@ -128,15 +171,14 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
             self.jormungandr = Some(jormungandr);
             Ok(cmd)
         } else {
-            bail!(
-                "Invalid version for jormungandr, Version ({}) does not match requirement `{}`",
+            Err(Error::InvalidJormungandrVersion(
                 version,
-                version_req
-            )
+                version_req.clone(),
+            ))
         }
     }
 
-    fn prepare_config(&self) -> Result<()> {
+    fn prepare_config(&self) -> Result<(), Error> {
         let content = format!(
             r###"
 # Generate file, do not update or change the values
@@ -146,20 +188,16 @@ rest:
         "###,
             select_port_number()?
         );
-        std::fs::write(self.channel.get_node_config(), content).chain_err(|| {
-            format!(
-                "Cannot write node's config ({})",
-                self.channel.get_node_config().display()
-            )
-        })
+        std::fs::write(self.channel.get_node_config(), content)
+            .map_err(|e| Error::CannotWriteFile(e, self.channel.get_node_config()))
     }
 
-    fn prepare(&mut self) -> Result<Command> {
+    fn prepare(&mut self) -> Result<Command, Error> {
         self.prepare_config()?;
         let channel = self.channel;
 
         if let Some(info) = &self.info {
-            bail!(format!("Not already running ({})", info.pid))
+            return Err(Error::NodeRunning(info.pid));
         }
 
         let mut cmd = self.jormungandr()?;
@@ -194,7 +232,7 @@ rest:
         Ok(cmd)
     }
 
-    pub fn spawn(&mut self, parameters: &[&str]) -> Result<()> {
+    pub fn spawn(&mut self, parameters: Vec<String>) -> Result<(), Error> {
         let mut cmd = self.prepare()?;
         cmd.args(parameters);
 
@@ -202,10 +240,10 @@ rest:
         cmd.stdout(Stdio::null());
         cmd.stderr(
             std::fs::File::create(self.channel.get_log_file())
-                .chain_err(|| "Cannot create/open log file")?,
+                .map_err(|e| Error::CannotOpenFile(e, self.channel.get_log_file()))?,
         );
 
-        let child = cmd.spawn().chain_err(|| "Cannot start jormungandr")?;
+        let child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
 
         let runner_info = RunnerInfo {
             pid: child.id(),
@@ -214,30 +252,28 @@ rest:
 
         std::fs::write(
             self.channel.get_runner_file(),
-            toml::to_string(&runner_info).unwrap(),
+            serde_json::to_string(&runner_info).unwrap(),
         )
         // TODO? on failure, shall we kill the child?
-        .chain_err(|| "Cannot save the process info file")?;
+        .map_err(|e| Error::CannotWriteFile(e, self.channel.get_runner_file()))?;
 
         self.info = Some(runner_info);
 
         Ok(())
     }
 
-    pub fn run(mut self, parameters: &[&str]) -> Result<()> {
+    pub fn run(mut self, parameters: Vec<String>) -> Result<(), Error> {
         let mut cmd = self.prepare()?;
         cmd.args(parameters);
-        let child = cmd.spawn_async().chain_err(|| "Cannot start jormungandr")?;
+        let mut child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
 
-        tokio::run(
-            child
-                .map(|status| println!("exit status: {}", status))
-                .map_err(|e| panic!("failed to wait for exit: {}", e)),
-        );
-        Ok(())
+        child
+            .wait()
+            .map(|status| println!("exit status: {}", status))
+            .map_err(|e| panic!("failed to wait for exit: {}", e))
     }
 
-    pub fn shutdown(&mut self) -> Result<()> {
+    pub fn shutdown(&mut self) -> Result<(), Error> {
         let info = if let Some(info) = std::mem::replace(&mut self.info, None) {
             info
         } else {
@@ -255,21 +291,21 @@ rest:
                 &format!("http://localhost:{}/api", info.rest_port),
             ])
             .status()
-            .chain_err(|| "Cannot send shutdown signal to the running node")?;
+            .map_err(Error::CannotSendStopSignal)?;
 
         if status.success() {
             std::fs::remove_file(self.channel.get_runner_file())
-                .chain_err(|| "Cannot remove the running file")
+                .map_err(Error::CannotRemoveRunnerFile)
         } else {
-            bail!("Cannot stop running node? Invalid state")
+            Err(Error::CannotStopNode)
         }
     }
 
-    pub fn settings(&mut self) -> Result<()> {
+    pub fn settings(&mut self) -> Result<(), Error> {
         let info = if let Some(info) = &self.info {
             info.clone()
         } else {
-            bail!("No running node")
+            return Err(Error::NoRunningNode);
         };
 
         let status = self
@@ -283,20 +319,20 @@ rest:
                 &format!("http://localhost:{}/api", info.rest_port),
             ])
             .status()
-            .chain_err(|| "Cannot send shutdown signal to the running node")?;
+            .map_err(Error::CannotSendStopSignal)?;
 
         if status.success() {
             Ok(())
         } else {
-            bail!("Cannot stop running node? Invalid state")
+            Err(Error::CannotStopNode)
         }
     }
 
-    pub fn info(&mut self) -> Result<()> {
+    pub fn info(&mut self) -> Result<(), Error> {
         let info = if let Some(info) = &self.info {
             info.clone()
         } else {
-            bail!("No running node")
+            return Err(Error::NoRunningNode);
         };
 
         println!("{:#?}", info);
@@ -313,16 +349,16 @@ rest:
                 &format!("http://localhost:{}/api", info.rest_port),
             ])
             .status()
-            .chain_err(|| "Cannot send shutdown signal to the running node")?;
+            .map_err(Error::CannotSendStopSignal)?;
 
         if status.success() {
             Ok(())
         } else {
-            bail!("Cannot stop running node? Invalid state")
+            Err(Error::CannotStopNode)
         }
     }
 
-    pub fn get_wallet_secret_key(&mut self, force: bool) -> Result<PathBuf> {
+    pub fn get_wallet_secret_key(&mut self, force: bool) -> Result<PathBuf, Error> {
         let wallet_path = self.channel.get_wallet_secret();
 
         if !wallet_path.is_file() || force {
@@ -332,7 +368,7 @@ rest:
         Ok(wallet_path)
     }
 
-    pub fn get_wallet_address(&mut self) -> Result<String> {
+    pub fn get_wallet_address(&mut self) -> Result<String, Error> {
         let pk = self.get_public_key(self.channel.get_wallet_secret())?;
 
         let address = self.make_address(pk.trim_end())?;
@@ -340,7 +376,7 @@ rest:
         Ok(address.trim_end().to_owned())
     }
 
-    fn make_address<PK: AsRef<str>>(&mut self, public_key: PK) -> Result<String> {
+    fn make_address<PK: AsRef<str>>(&mut self, public_key: PK) -> Result<String, Error> {
         let output = self
             .jcli()?
             .args(&[
@@ -351,16 +387,16 @@ rest:
                 public_key.as_ref(),
             ])
             .output()
-            .chain_err(|| "unable to create the address")?;
-        String::from_utf8(output.stdout).chain_err(|| "Invalid address")
+            .map_err(Error::AddressCreate)?;
+        String::from_utf8(output.stdout).map_err(Error::InvalidAddress)
     }
 
-    fn get_public_key<P>(&mut self, secret_key: P) -> Result<String>
+    fn get_public_key<P>(&mut self, secret_key: P) -> Result<String, Error>
     where
         P: AsRef<Path>,
     {
         if !secret_key.as_ref().is_file() {
-            bail!("No secret key, did you mean to create a secret key too?")
+            return Err(Error::NoSecretKey);
         }
 
         let output = self
@@ -372,12 +408,12 @@ rest:
                 secret_key.as_ref().display().to_string().as_str(),
             ])
             .output()
-            .chain_err(|| "unable to extract the public key")?;
+            .map_err(Error::ReadPublicKey)?;
 
-        String::from_utf8(output.stdout).chain_err(|| "Invalid public key")
+        String::from_utf8(output.stdout).map_err(Error::InvalidAddress)
     }
 
-    fn gen_secret_key<P>(&mut self, key_type: &str, path: P) -> Result<()>
+    fn gen_secret_key<P>(&mut self, key_type: &str, path: P) -> Result<(), Error>
     where
         P: AsRef<Path>,
     {
@@ -391,48 +427,30 @@ rest:
                 path.as_ref().display().to_string().as_str(),
             ])
             .status()
-            .chain_err(|| format!("Cannot generate key {}", key_type))?;
+            .map_err(|_| Error::GenerateKey(key_type.to_owned()))?;
         if status.success() {
             Ok(())
         } else {
-            bail!(format!("Cannot generate key {}", key_type))
+            return Err(Error::GenerateKey(key_type.to_owned()));
         }
     }
 }
 
 #[cfg(unix)]
-fn check_pid(pid: u32) -> Result<bool> {
+fn check_pid(pid: u32) -> Result<bool, Error> {
     let status = Command::new("ps")
         .arg(&pid.to_string())
         .stdout(Stdio::null())
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .chain_err(|| "Cannot check process ID is running")?;
+        .map_err(Error::PidCheck)?;
 
     Ok(status.success())
 }
 
 #[cfg(windows)]
-#[derive(Debug)]
-struct WindowsError(u64);
-
-#[cfg(windows)]
-impl fmt::Display for WindowsError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "system error: {}", self.0)
-    }
-}
-
-#[cfg(windows)]
-impl error::Error for WindowsError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        None
-    }
-}
-
-#[cfg(windows)]
-fn check_pid(pid: u32) -> Result<bool> {
+fn check_pid(pid: u32) -> Result<bool, Error> {
     use winapi::{
         shared::minwindef::*,
         um::{
@@ -453,37 +471,30 @@ fn check_pid(pid: u32) -> Result<bool> {
             Ok(exit_code == STILL_ACTIVE)
         } else {
             let error_code = GetLastError();
-            Err(WindowsError(error_code as u64)).chain_err(|| "Cannot check process ID is running")
+            Err(Error::PidCheck(error_code as u64))
         }
     }
 }
 
-fn get_version<P>(executable: &str, cmd: P) -> Result<Version>
+fn get_version<P>(executable: &str, cmd: P) -> Result<Version, Error>
 where
     P: AsRef<Path>,
 {
     let output = Command::new(cmd.as_ref())
         .arg("--version")
         .output()
-        .chain_err(|| format!("Cannot get the version of {}", cmd.as_ref().display()))?;
+        .map_err(|e| Error::GetVersion(e, cmd.as_ref().to_path_buf()))?;
 
-    let output = String::from_utf8(output.stdout).chain_err(|| {
-        format!(
-            "Invalid output from execution of '{} --version'",
-            cmd.as_ref().display()
-        )
-    })?;
+    let output = String::from_utf8(output.stdout)
+        .map_err(|e| Error::InvalidVersionOutput(e, cmd.as_ref().to_path_buf()))?;
 
-    output.trim_start_matches(executable).parse().chain_err(|| {
-        format!(
-            "Cannot parse the version of `{}`: `{}`",
-            cmd.as_ref().display(),
-            output
-        )
-    })
+    output
+        .trim_start_matches(executable)
+        .parse()
+        .map_err(|e| Error::ParseVersion(e, cmd.as_ref().to_path_buf(), output))
 }
 
-fn select_port_number() -> Result<u16> {
+fn select_port_number() -> Result<u16, Error> {
     // TODO
     Ok(8080)
 }

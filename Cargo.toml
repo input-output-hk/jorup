@@ -1,6 +1,40 @@
-[workspace]
-members = [
-    "jorup-lib",
-    "jorup",
-    "hel",
+[package]
+name = "jorup"
+version = "0.3.0"
+authors = [
+    "Nicolas Di Prima <nicolas.diprima@iohk.io>",
+    "Yevhenii Babichenko <eugene.babichenko@iohk.io>",
 ]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+readme = "../README.md"
+repository = "https://github.com/input-output-hk/jorup"
+homepage = "https://github.com/input-output-hk/jorup#README.md"
+
+[dependencies]
+dialoguer = "0.4"
+dirs = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+semver = { version = "0.9.0", features = ["serde"] }
+indicatif = "0.14"
+chrono = "0.4"
+thiserror = "1.0"
+structopt = "0.3"
+
+[dependencies.reqwest]
+version = "0.10.4"
+default-features = false
+features = ["rustls-tls", "blocking", "gzip"]
+
+[target.'cfg(unix)'.dependencies]
+tar = { version = "0.4", default-features = false }
+flate2 = "1.0"
+
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3.8"
+zip = "0.5.5"
+
+[dev-dependencies]
+quickcheck = "0.9"
+quickcheck_macros = "0.8"
