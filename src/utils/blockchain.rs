@@ -1,5 +1,4 @@
 use crate::common::JorupConfig;
-use crate::jorfile::PartialChannelDesc;
 use semver::VersionReq;
 use std::{
     io,
@@ -7,9 +6,8 @@ use std::{
 };
 use thiserror::Error;
 
-pub struct Channel {
-    entry: crate::jorfile::Entry,
-    version: PartialChannelDesc,
+pub struct Blockchain {
+    entry: crate::config::Blockchain,
 
     path: PathBuf,
 }
@@ -26,53 +24,24 @@ pub enum Error {
     CannotWriteFile(#[source] io::Error, PathBuf),
 }
 
-impl Channel {
-    pub fn load(cfg: &mut JorupConfig, channel_name: Option<String>) -> Result<Self, Error> {
-        let mut channel_entered = cfg.current_channel().clone();
+impl Blockchain {
+    pub fn load(cfg: &mut JorupConfig, blockchain_name: &str) -> Result<Self, Error> {
+        let jor = cfg.load_jor().map_err(Error::NoJorfile)?;
 
-        let entry = if let Some(channel) = channel_name {
-            let jor = cfg.load_jor().map_err(Error::NoJorfile)?;
-
-            // should be save to unwrap as we have set a validator in the Argument
-            // for the CLI to check it is valid
-            channel_entered = channel.parse().unwrap();
-
-            jor.entries()
-                .values()
-                .filter(|entry| channel_entered.matches(entry.channel()))
-                .last()
-                .cloned()
-        } else {
-            cfg.current_entry().map_err(Error::NoJorfile)?.cloned()
-        };
+        let entry = jor.get_blockchain(blockchain_name).cloned();
 
         if let Some(entry) = entry {
-            Self::new(cfg, entry.clone(), channel_entered)
+            Self::new(cfg, entry.clone())
         } else {
             Err(Error::NoEntry)
         }
     }
 
-    fn new(
-        cfg: &JorupConfig,
-        entry: crate::jorfile::Entry,
-        channel_version: PartialChannelDesc,
-    ) -> Result<Self, Error> {
-        let path = cfg
-            .channel_dir()
-            .join(entry.channel().channel().to_string())
-            .join(entry.channel().date().to_string());
+    fn new(cfg: &JorupConfig, entry: crate::config::Blockchain) -> Result<Self, Error> {
+        let path = cfg.blockchain_dir().join(entry.name().to_string());
         std::fs::create_dir_all(&path)
             .map_err(|e| Error::CannotCreateDirectory(e, path.clone()))?;
-        Ok(Channel {
-            entry,
-            version: channel_version,
-            path,
-        })
-    }
-
-    pub fn channel_version(&self) -> &PartialChannelDesc {
-        &self.version
+        Ok(Self { entry, path })
     }
 
     pub fn prepare(&self) -> Result<(), Error> {
@@ -81,7 +50,7 @@ impl Channel {
 
     fn install_block0_hash(&self) -> Result<(), Error> {
         let path = self.get_genesis_block_hash();
-        let content = self.entry().genesis().block0_hash();
+        let content = self.entry().block0_hash();
 
         write_all_to(&path, content).map_err(|e| Error::CannotWriteFile(e, path))
     }
@@ -90,7 +59,7 @@ impl Channel {
         self.entry().jormungandr_versions()
     }
 
-    pub fn entry(&self) -> &crate::jorfile::Entry {
+    pub fn entry(&self) -> &crate::config::Blockchain {
         &self.entry
     }
 

@@ -34,7 +34,3 @@ flate2 = "1.0"
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
 zip = "0.5.5"
-
-[dev-dependencies]
-quickcheck = "0.9"
-quickcheck_macros = "0.8"

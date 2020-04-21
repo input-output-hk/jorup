@@ -14,7 +14,7 @@ pub struct RootCmd {
     /// Set the home directory for jorup
     ///
     /// Set the directory path where jorup will install the different releases
-    /// or different channels. Mainly remember to set `$JORUP_HOME/bin` value to
+    /// or different blockchains. Mainly remember to set `$JORUP_HOME/bin` value to
     /// your $PATH for easy access to the default release's tools.
     #[structopt(long)]
     jorup_home: Option<PathBuf>,

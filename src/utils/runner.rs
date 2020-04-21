@@ -1,4 +1,4 @@
-use crate::{utils::channel::Channel, utils::release::Release};
+use crate::{utils::blockchain::Blockchain, utils::release::Release};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -19,7 +19,7 @@ pub struct RunnerInfo {
 }
 
 pub struct RunnerControl<'a, 'b> {
-    channel: &'a Channel,
+    blockchain: &'a Blockchain,
     release: &'b Release,
     info: Option<RunnerInfo>,
     jcli: Option<PathBuf>,
@@ -75,8 +75,8 @@ pub enum Error {
 }
 
 impl<'a, 'b> RunnerControl<'a, 'b> {
-    pub fn new(channel: &'a Channel, release: &'b Release) -> Result<Self, Error> {
-        let info_file = channel.get_runner_file();
+    pub fn new(blockchain: &'a Blockchain, release: &'b Release) -> Result<Self, Error> {
+        let info_file = blockchain.get_runner_file();
 
         let info = if info_file.is_file() {
             let info = std::fs::read_to_string(&info_file)
@@ -93,9 +93,9 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                 eprintln!("      it seems a previous node was not shutdown properly");
                 eprintln!(
                     "      check {} for more information",
-                    channel.get_log_file().display()
+                    blockchain.get_log_file().display()
                 );
-                std::fs::remove_file(channel.get_runner_file())
+                std::fs::remove_file(blockchain.get_runner_file())
                     .map_err(Error::CannotRemoveRunnerFile)?;
                 None
             }
@@ -104,7 +104,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         };
 
         Ok(RunnerControl {
-            channel,
+            blockchain,
             release,
             info,
             jcli: None,
@@ -124,7 +124,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         };
 
         let version = get_version("jormungandr ", &jormungandr)?;
-        let version_req = self.channel.entry().jormungandr_versions();
+        let version_req = self.blockchain.entry().jormungandr_versions();
 
         if version_req.matches(&version) {
             self.jormungandr = Some(jormungandr);
@@ -145,7 +145,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         let jcli = self.release.get_jcli();
 
         let version = get_version("jcli ", &jcli)?;
-        let version_req = self.channel.entry().jormungandr_versions();
+        let version_req = self.blockchain.entry().jormungandr_versions();
 
         if version_req.matches(&version) {
             let cmd = Command::new(&jcli);
@@ -164,7 +164,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         let jormungandr = self.release.get_jormungandr();
 
         let version = get_version("jormungandr ", &jormungandr)?;
-        let version_req = self.channel.entry().jormungandr_versions();
+        let version_req = self.blockchain.entry().jormungandr_versions();
 
         if version_req.matches(&version) {
             let cmd = Command::new(&jormungandr);
@@ -188,13 +188,13 @@ rest:
         "###,
             select_port_number()?
         );
-        std::fs::write(self.channel.get_node_config(), content)
-            .map_err(|e| Error::CannotWriteFile(e, self.channel.get_node_config()))
+        std::fs::write(self.blockchain.get_node_config(), content)
+            .map_err(|e| Error::CannotWriteFile(e, self.blockchain.get_node_config()))
     }
 
     fn prepare(&mut self) -> Result<Command, Error> {
         self.prepare_config()?;
-        let channel = self.channel;
+        let blockchain = self.blockchain;
 
         if let Some(info) = &self.info {
             return Err(Error::NodeRunning(info.pid));
@@ -202,30 +202,31 @@ rest:
 
         let mut cmd = self.jormungandr()?;
 
-        cmd.current_dir(channel.dir());
+        cmd.current_dir(blockchain.dir());
 
-        let genesis_block_hash = std::fs::read_to_string(channel.get_genesis_block_hash()).unwrap();
+        let genesis_block_hash =
+            std::fs::read_to_string(blockchain.get_genesis_block_hash()).unwrap();
 
         cmd.args(&[
             "--storage",
-            channel.get_node_storage().display().to_string().as_str(),
+            blockchain.get_node_storage().display().to_string().as_str(),
             "--config",
-            channel.get_node_config().display().to_string().as_str(),
+            blockchain.get_node_config().display().to_string().as_str(),
             "--genesis-block-hash",
             &genesis_block_hash,
         ]);
 
-        for peer in channel.entry().known_trusted_peers() {
+        for peer in blockchain.entry().trusted_peers() {
             cmd.args(&[
                 "--trusted-peer",
                 &format!("{}@{}", peer.address(), peer.id()),
             ]);
         }
 
-        if channel.get_node_secret().is_file() {
+        if blockchain.get_node_secret().is_file() {
             cmd.args(&[
                 "--secret",
-                channel.get_node_secret().display().to_string().as_str(),
+                blockchain.get_node_secret().display().to_string().as_str(),
             ]);
         }
 
@@ -239,8 +240,8 @@ rest:
         cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::null());
         cmd.stderr(
-            std::fs::File::create(self.channel.get_log_file())
-                .map_err(|e| Error::CannotOpenFile(e, self.channel.get_log_file()))?,
+            std::fs::File::create(self.blockchain.get_log_file())
+                .map_err(|e| Error::CannotOpenFile(e, self.blockchain.get_log_file()))?,
         );
 
         let child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
@@ -251,11 +252,11 @@ rest:
         };
 
         std::fs::write(
-            self.channel.get_runner_file(),
+            self.blockchain.get_runner_file(),
             serde_json::to_string(&runner_info).unwrap(),
         )
         // TODO? on failure, shall we kill the child?
-        .map_err(|e| Error::CannotWriteFile(e, self.channel.get_runner_file()))?;
+        .map_err(|e| Error::CannotWriteFile(e, self.blockchain.get_runner_file()))?;
 
         self.info = Some(runner_info);
 
@@ -294,7 +295,7 @@ rest:
             .map_err(Error::CannotSendStopSignal)?;
 
         if status.success() {
-            std::fs::remove_file(self.channel.get_runner_file())
+            std::fs::remove_file(self.blockchain.get_runner_file())
                 .map_err(Error::CannotRemoveRunnerFile)
         } else {
             Err(Error::CannotStopNode)
@@ -359,7 +360,7 @@ rest:
     }
 
     pub fn get_wallet_secret_key(&mut self, force: bool) -> Result<PathBuf, Error> {
-        let wallet_path = self.channel.get_wallet_secret();
+        let wallet_path = self.blockchain.get_wallet_secret();
 
         if !wallet_path.is_file() || force {
             self.gen_secret_key("Ed25519", &wallet_path)?;
@@ -369,7 +370,7 @@ rest:
     }
 
     pub fn get_wallet_address(&mut self) -> Result<String, Error> {
-        let pk = self.get_public_key(self.channel.get_wallet_secret())?;
+        let pk = self.get_public_key(self.blockchain.get_wallet_secret())?;
 
         let address = self.make_address(pk.trim_end())?;
 

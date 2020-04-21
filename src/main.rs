@@ -1,12 +1,6 @@
-#[cfg(test)]
-extern crate quickcheck;
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
-
 mod commands;
 mod common;
-mod jorfile;
+mod config;
 mod utils;
 
 use structopt::StructOpt;
