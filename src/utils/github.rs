@@ -1,4 +1,4 @@
-use super::download::download_to_reader;
+use super::download::download_to_writer;
 use semver::{SemVerError, Version, VersionReq};
 use serde::Deserialize;
 use thiserror::Error;
@@ -36,7 +36,7 @@ pub enum Error {
 
 pub fn find_matching_release(version_req: &VersionReq) -> Result<Release, Error> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
-    download_to_reader(
+    download_to_writer(
         "GitHub releases",
         "https://api.github.com/repos/input-output-hk/jormungandr/releases",
         &mut releases_data_raw,
@@ -76,7 +76,6 @@ impl Release {
             platform,
             ext
         );
-        println!("{}", expected_name);
         let maybe_asset = self.assets.iter().find(|asset| asset.name == expected_name);
         maybe_asset.map(|asset| &asset.url[..])
     }

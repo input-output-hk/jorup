@@ -1,4 +1,5 @@
 mod info;
+mod node;
 mod run;
 mod setup;
 mod shutdown;
@@ -58,6 +59,7 @@ enum Command {
     Wallet(wallet::Command),
     Setup(setup::Command),
     Update(update::Command),
+    Node(node::Command),
 }
 
 #[derive(Debug, Error)]
@@ -76,6 +78,8 @@ pub enum Error {
     Wallet(#[from] wallet::Error),
     #[error(transparent)]
     Setup(#[from] setup::Error),
+    #[error(transparent)]
+    Node(#[from] node::Error),
 }
 
 impl RootCmd {
@@ -94,6 +98,7 @@ impl RootCmd {
             Command::Wallet(cmd) => cmd.run(cfg)?,
             Command::Setup(cmd) => cmd.run(cfg)?,
             Command::Update(cmd) => cmd.run(cfg)?,
+            Command::Node(cmd) => cmd.run(cfg)?,
         }
 
         Ok(())

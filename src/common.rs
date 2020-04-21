@@ -19,8 +19,6 @@ pub enum Error {
     CannotCreateHomeDir(#[source] io::Error, PathBuf),
     #[error("Cannot create directory: {1}")]
     CannotCreateInitDir(#[source] io::Error, PathBuf),
-    #[error("Cannot save settings: {1}")]
-    CannotSaveSettings(#[source] io::Error, PathBuf),
     #[error("Cannot open file: {1}")]
     CannotOpenFile(#[source] io::Error, PathBuf),
     #[error("Cannot parse file: {1}")]
@@ -50,7 +48,7 @@ impl JorupConfig {
 
         let jor_file = jorfile.map(|jor_file| jor_file.into());
 
-        let mut cfg = JorupConfig {
+        let cfg = JorupConfig {
             home_dir,
             jor_file,
             jor: None,

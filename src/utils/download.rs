@@ -44,7 +44,7 @@ where
     }
 }
 
-pub fn download_to_reader<W: io::Write>(
+pub fn download_to_writer<W: io::Write>(
     what: &str,
     url: &str,
     to: &mut W,
@@ -95,7 +95,7 @@ pub fn download_file<P: AsRef<Path>>(what: &str, url: &str, to: P) -> Result<(),
         .open(to.as_ref())
         .map_err(|e| Error::CannotCreateDestinationFile(e, to.as_ref().to_path_buf()))?;
 
-    download_to_reader(what, url, &mut file).map_err(|e| Error::CannotDownloadAsset {
+    download_to_writer(what, url, &mut file).map_err(|e| Error::CannotDownloadAsset {
         source: e,
         asset: what.to_owned(),
         destination: to.as_ref().to_path_buf(),
