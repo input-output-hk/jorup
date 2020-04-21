@@ -34,6 +34,20 @@ pub enum Error {
     ReleaseNotFound(VersionReq),
 }
 
+pub fn get_exact_release(version: Version) -> Result<Release, Error> {
+    let mut release_data_raw: Vec<u8> = Vec::new();
+    let url = format!(
+        "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/v{}",
+        version
+    );
+    download_to_writer("GitHub release", &url, &mut release_data_raw)?;
+    let release: ReleaseDef = serde_json::from_slice(&release_data_raw)?;
+    Ok(Release {
+        version,
+        assets: release.assets,
+    })
+}
+
 pub fn find_matching_release(version_req: &VersionReq) -> Result<Release, Error> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
     download_to_writer(

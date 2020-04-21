@@ -1,6 +1,10 @@
 use crate::{
     common::JorupConfig,
-    utils::{download_file, release::Release},
+    utils::{
+        blockchain::Blockchain,
+        download_file, github,
+        release::{Error as ReleaseError, Release},
+    },
 };
 use semver::{Version, VersionReq};
 use structopt::StructOpt;
@@ -33,12 +37,14 @@ pub enum Command {
 pub enum Error {
     #[error("Cannot run this command offline")]
     Offline,
-    #[error("Blockchain not found")]
-    BlockchainNotFound,
+    #[error("Cannot load the requested blockchain")]
+    NoValidBlockchain(#[from] crate::utils::blockchain::Error),
+    #[error("Cannot find a release on GitHub")]
+    GitHub(#[from] crate::utils::github::Error),
     #[error("Cannot specify blockchain and version at the same time")]
     MustNotSpecifyBlockchainAndVersion,
-    #[error("Cannot find any matching releases")]
-    NoCompatibleRelease(#[source] crate::utils::release::Error),
+    #[error("Failed to load a release")]
+    ReleaseLoadError(#[source] ReleaseError),
     #[error("Cannot download and install an update")]
     CannotUpdate(#[source] crate::utils::download::Error),
 }
@@ -71,19 +77,34 @@ fn install(
         return Err(Error::MustNotSpecifyBlockchainAndVersion);
     }
 
+    let load_latest = version.is_none() && blockchain.is_none();
+
     let version_req = match version {
         None => match blockchain {
             None => VersionReq::any(),
-            Some(blockchain_name) => match cfg.get_blockchain(&blockchain_name) {
-                None => return Err(Error::BlockchainNotFound),
-                Some(blockchain) => blockchain.jormungandr_versions().clone(),
-            },
+            Some(blockchain_name) => Blockchain::load(&mut cfg, &blockchain_name)?
+                .jormungandr_version_req()
+                .clone(),
         },
         Some(version) => VersionReq::exact(&version),
     };
 
-    let release = Release::new(&mut cfg, &version_req).map_err(Error::NoCompatibleRelease)?;
-    let asset = release.asset_remote().map_err(Error::NoCompatibleRelease)?;
+    let release = if load_latest {
+        let gh_release = github::find_matching_release(&version_req)?;
+        Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoadError)?
+    } else {
+        match Release::load(&mut cfg, &version_req) {
+            Ok(release) => release,
+            Err(ReleaseError::NoCompatibleReleaseInstalled) => {
+                let gh_release = github::find_matching_release(&version_req)?;
+                Release::new(&mut cfg, gh_release.version().clone())
+                    .map_err(Error::ReleaseLoadError)?
+            }
+            Err(err) => return Err(Error::ReleaseLoadError(err)),
+        }
+    };
+
+    let asset = release.asset_remote().map_err(Error::ReleaseLoadError)?;
 
     if release.asset_need_fetched() {
         download_file(
@@ -95,12 +116,12 @@ fn install(
         println!("**** asset downloaded");
     }
 
-    release.asset_open().map_err(Error::NoCompatibleRelease)?;
+    release.asset_open().map_err(Error::ReleaseLoadError)?;
 
     if make_default {
         release
             .make_default(&cfg)
-            .map_err(Error::NoCompatibleRelease)?;
+            .map_err(Error::ReleaseLoadError)?;
     }
 
     Ok(())

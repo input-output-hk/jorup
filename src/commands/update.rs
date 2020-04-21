@@ -36,7 +36,7 @@ impl Command {
         let blockchain =
             Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
-        let release = Release::new(&mut cfg, blockchain.jormungandr_version_req())
+        let release = Release::load(&mut cfg, blockchain.jormungandr_version_req())
             .map_err(Error::NoCompatibleRelease)?;
         let asset = release.asset_remote().map_err(Error::NoCompatibleRelease)?;
 
