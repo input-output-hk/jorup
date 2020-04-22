@@ -3,7 +3,7 @@ use crate::{
     utils::{
         blockchain::Blockchain,
         download_file, github,
-        release::{Error as ReleaseError, Release},
+        release::{list_installed_releases, Error as ReleaseError, Release},
     },
 };
 use semver::{Version, VersionReq};
@@ -29,6 +29,7 @@ pub enum Command {
         #[structopt(long)]
         make_default: bool,
     },
+    /// List locally installed Jormungandr releases
     List,
     Remove,
 }
@@ -44,9 +45,11 @@ pub enum Error {
     #[error("Cannot specify blockchain and version at the same time")]
     MustNotSpecifyBlockchainAndVersion,
     #[error("Failed to load a release")]
-    ReleaseLoadError(#[source] ReleaseError),
+    ReleaseLoad(#[source] ReleaseError),
     #[error("Cannot download and install an update")]
     CannotUpdate(#[source] crate::utils::download::Error),
+    #[error("Error while listing releases")]
+    ReleasesList(#[source] ReleaseError),
 }
 
 impl Command {
@@ -57,7 +60,7 @@ impl Command {
                 blockchain,
                 make_default,
             } => install(cfg, version, blockchain, make_default),
-            Command::List => list(),
+            Command::List => list(cfg),
             Command::Remove => remove(),
         }
     }
@@ -91,20 +94,19 @@ fn install(
 
     let release = if load_latest {
         let gh_release = github::find_matching_release(&version_req)?;
-        Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoadError)?
+        Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
             Err(ReleaseError::NoCompatibleReleaseInstalled) => {
                 let gh_release = github::find_matching_release(&version_req)?;
-                Release::new(&mut cfg, gh_release.version().clone())
-                    .map_err(Error::ReleaseLoadError)?
+                Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
             }
-            Err(err) => return Err(Error::ReleaseLoadError(err)),
+            Err(err) => return Err(Error::ReleaseLoad(err)),
         }
     };
 
-    let asset = release.asset_remote().map_err(Error::ReleaseLoadError)?;
+    let asset = release.asset_remote().map_err(Error::ReleaseLoad)?;
 
     if release.asset_need_fetched() {
         download_file(
@@ -116,18 +118,19 @@ fn install(
         println!("**** asset downloaded");
     }
 
-    release.asset_open().map_err(Error::ReleaseLoadError)?;
+    release.asset_open().map_err(Error::ReleaseLoad)?;
 
     if make_default {
-        release
-            .make_default(&cfg)
-            .map_err(Error::ReleaseLoadError)?;
+        release.make_default(&cfg).map_err(Error::ReleaseLoad)?;
     }
 
     Ok(())
 }
 
-fn list() -> Result<(), Error> {
+fn list(cfg: JorupConfig) -> Result<(), Error> {
+    for release in list_installed_releases(&cfg).map_err(Error::ReleasesList)? {
+        println!("v{}", release);
+    }
     Ok(())
 }
 

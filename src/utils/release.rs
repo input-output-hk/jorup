@@ -36,27 +36,31 @@ pub enum Error {
     CannotUnpack(#[source] zip::result::ZipError, PathBuf),
 }
 
+pub fn list_installed_releases(cfg: &JorupConfig) -> Result<impl Iterator<Item = Version>, Error> {
+    Ok(fs::read_dir(cfg.release_dir())
+        .map_err(|err| Error::ReleaseDirectory(err, cfg.release_dir()))?
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_type()
+                .map(|etype| etype.is_dir())
+                .unwrap_or_else(|_| false)
+        })
+        .filter_map(|entry| {
+            entry
+                .file_name()
+                .as_os_str()
+                .to_str()
+                .map(|name| Version::parse(name))
+                .and_then(Result::ok)
+        }))
+}
+
 impl Release {
     /// load the latest locally installed release
     pub fn load(cfg: &mut JorupConfig, version_req: &VersionReq) -> Result<Self, Error> {
-        let version = fs::read_dir(cfg.release_dir())
-            .map_err(|err| Error::ReleaseDirectory(err, cfg.release_dir()))?
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                entry
-                    .file_type()
-                    .ok()
-                    .and_then(|etype| if etype.is_dir() { Some(entry) } else { None })
-            })
-            .filter_map(|entry| {
-                entry
-                    .file_name()
-                    .as_os_str()
-                    .to_str()
-                    .map(|name| Version::parse(name))
-                    .and_then(Result::ok)
-                    .filter(|version| version_req.matches(version))
-            })
+        let version = list_installed_releases(cfg)?
+            .filter(|version| version_req.matches(version))
             .max()
             .ok_or(Error::NoCompatibleReleaseInstalled)?;
 
