@@ -31,7 +31,8 @@ pub enum Command {
     },
     /// List locally installed Jormungandr releases
     List,
-    Remove,
+    /// Remove the specified release
+    Remove { version: Version },
 }
 
 #[derive(Debug, Error)]
@@ -50,6 +51,8 @@ pub enum Error {
     CannotUpdate(#[source] crate::utils::download::Error),
     #[error("Error while listing releases")]
     ReleasesList(#[source] ReleaseError),
+    #[error("Failed to remove a release")]
+    RemoveRelease(#[source] std::io::Error),
 }
 
 impl Command {
@@ -61,7 +64,7 @@ impl Command {
                 make_default,
             } => install(cfg, version, blockchain, make_default),
             Command::List => list(cfg),
-            Command::Remove => remove(),
+            Command::Remove { version } => remove(cfg, version),
         }
     }
 }
@@ -134,6 +137,10 @@ fn list(cfg: JorupConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn remove() -> Result<(), Error> {
+fn remove(mut cfg: JorupConfig, version: Version) -> Result<(), Error> {
+    let version_req = VersionReq::exact(&version);
+    let release = Release::load(&mut cfg, &version_req).map_err(Error::ReleaseLoad)?;
+    std::fs::remove_dir(release.dir()).map_err(Error::RemoveRelease)?;
+
     Ok(())
 }
