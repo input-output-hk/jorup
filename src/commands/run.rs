@@ -2,7 +2,7 @@ use crate::{
     common::JorupConfig, utils::blockchain::Blockchain, utils::release::Release,
     utils::runner::RunnerControl,
 };
-use std::path::PathBuf;
+use semver::Version;
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -12,13 +12,14 @@ pub struct Command {
     /// The blockchain to run jormungandr for
     blockchain: String,
 
+    /// The version of Jormungandr to run. If not specified, the latest
+    /// compatible version will be used.
+    #[structopt(short, long)]
+    version: Option<Version>,
+
     /// Run the node as a daemon
     #[structopt(long)]
     daemon: bool,
-
-    /// Use this specified binary as executable
-    #[structopt(long)]
-    jormungandr: Option<PathBuf>,
 
     /// Extra parameters to pass on to the node
     ///
@@ -38,8 +39,6 @@ pub enum Error {
     NoCompatibleBinaries,
     #[error("Unable to start the runner controller")]
     CannotStartRunnerController(#[source] crate::utils::runner::Error),
-    #[error("Cannot override jormungandr binaries")]
-    CannotOverrideBinaries(#[source] crate::utils::runner::Error),
     #[error("Unable to start node")]
     Start(#[source] crate::utils::runner::Error),
 }
@@ -51,8 +50,12 @@ impl Command {
             Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
-        let release = Release::load(&mut cfg, blockchain.jormungandr_version_req())
-            .map_err(Error::NoCompatibleRelease)?;
+        let release = if let Some(version) = self.version {
+            Release::new(&mut cfg, version)
+        } else {
+            Release::load(&mut cfg, blockchain.jormungandr_version_req())
+        }
+        .map_err(Error::NoCompatibleRelease)?;
 
         if release.asset_need_fetched() {
             // asset release is not available
@@ -61,12 +64,6 @@ impl Command {
 
         let mut runner = RunnerControl::new(&blockchain, &release)
             .map_err(Error::CannotStartRunnerController)?;
-
-        if let Some(jormungandr) = self.jormungandr {
-            runner
-                .override_jormungandr(jormungandr)
-                .map_err(Error::CannotOverrideBinaries)?;
-        }
 
         if self.daemon {
             runner.spawn(self.extra).map_err(Error::Start)
