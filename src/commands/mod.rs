@@ -1,9 +1,9 @@
+mod blockchain;
 mod info;
 mod node;
 mod run;
 mod setup;
 mod shutdown;
-mod update;
 mod wallet;
 
 use std::path::PathBuf;
@@ -58,7 +58,7 @@ enum Command {
     Info(info::Command),
     Wallet(wallet::Command),
     Setup(setup::Command),
-    Update(update::Command),
+    Blockchain(blockchain::Command),
     Node(node::Command),
 }
 
@@ -67,7 +67,7 @@ pub enum Error {
     #[error(transparent)]
     Common(#[from] crate::common::Error),
     #[error(transparent)]
-    Update(#[from] update::Error),
+    Blockchain(#[from] blockchain::Error),
     #[error(transparent)]
     Run(#[from] run::Error),
     #[error(transparent)]
@@ -97,7 +97,7 @@ impl RootCmd {
             Command::Info(cmd) => cmd.run(cfg)?,
             Command::Wallet(cmd) => cmd.run(cfg)?,
             Command::Setup(cmd) => cmd.run(cfg)?,
-            Command::Update(cmd) => cmd.run(cfg)?,
+            Command::Blockchain(cmd) => cmd.run(cfg)?,
             Command::Node(cmd) => cmd.run(cfg)?,
         }
 
