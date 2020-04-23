@@ -1,10 +1,10 @@
-use semver::VersionReq;
-use serde::{Deserialize, Serialize};
+use crate::utils::version::VersionReq;
+use serde::Deserialize;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Config(Vec<Blockchain>);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Blockchain {
     name: String,
     description: String,
@@ -13,7 +13,7 @@ pub struct Blockchain {
     trusted_peers: Vec<TrustedPeer>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TrustedPeer {
     address: String,
     id: String,

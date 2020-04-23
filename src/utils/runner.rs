@@ -1,5 +1,8 @@
-use crate::{utils::blockchain::Blockchain, utils::release::Release};
-use semver::{Version, VersionReq};
+use crate::utils::{
+    blockchain::Blockchain,
+    release::Release,
+    version::{Version, VersionReq},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     io,
@@ -163,19 +166,24 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
 
         let jormungandr = self.release.get_jormungandr();
 
-        let version = get_version("jormungandr ", &jormungandr)?;
-        let version_req = self.blockchain.entry().jormungandr_versions();
+        match self.release.version() {
+            Version::Nightly(_) => {}
+            _ => {
+                let version = get_version("jormungandr ", &jormungandr)?;
+                let version_req = self.blockchain.entry().jormungandr_versions();
 
-        if version_req.matches(&version) {
-            let cmd = Command::new(&jormungandr);
-            self.jormungandr = Some(jormungandr);
-            Ok(cmd)
-        } else {
-            Err(Error::InvalidJormungandrVersion(
-                version,
-                version_req.clone(),
-            ))
+                if version_req.matches(&version) {
+                    return Err(Error::InvalidJormungandrVersion(
+                        version,
+                        version_req.clone(),
+                    ));
+                }
+            }
         }
+
+        let cmd = Command::new(&jormungandr);
+        self.jormungandr = Some(jormungandr);
+        Ok(cmd)
     }
 
     fn prepare_config(&self) -> Result<(), Error> {

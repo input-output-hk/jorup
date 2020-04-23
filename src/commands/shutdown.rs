@@ -1,6 +1,6 @@
 use crate::{
-    common::JorupConfig, utils::blockchain::Blockchain, utils::release::Release,
-    utils::runner::RunnerControl,
+    common::JorupConfig,
+    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl},
 };
 use structopt::StructOpt;
 use thiserror::Error;

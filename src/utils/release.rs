@@ -1,5 +1,10 @@
-use crate::{common::JorupConfig, utils::github};
-use semver::{Version, VersionReq};
+use crate::{
+    common::JorupConfig,
+    utils::{
+        github,
+        version::{Version, VersionReq},
+    },
+};
 use std::{
     fs::{self, File},
     io,
@@ -155,7 +160,7 @@ impl Release {
     }
 
     pub fn asset_remote(&self) -> Result<String, Error> {
-        let release = github::get_exact_release(self.version.clone())?;
+        let release = github::find_matching_release(VersionReq::exact(self.version.clone()))?;
         match release.get_asset_url(TARGET) {
             Some(url) => Ok(url.to_string()),
             None => Err(Error::AssetNotFound),

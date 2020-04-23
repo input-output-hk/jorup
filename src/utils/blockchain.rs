@@ -1,5 +1,4 @@
-use crate::common::JorupConfig;
-use semver::VersionReq;
+use crate::{common::JorupConfig, utils::version::VersionReq};
 use std::{
     io,
     path::{Path, PathBuf},

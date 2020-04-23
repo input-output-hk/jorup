@@ -4,9 +4,9 @@ use crate::{
         blockchain::Blockchain,
         download_file, github,
         release::{list_installed_releases, Error as ReleaseError, Release},
+        version::{Version, VersionReq},
     },
 };
-use semver::{Version, VersionReq};
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -87,22 +87,22 @@ fn install(
 
     let version_req = match version {
         None => match blockchain {
-            None => VersionReq::any(),
+            None => VersionReq::Latest,
             Some(blockchain_name) => Blockchain::load(&mut cfg, &blockchain_name)?
                 .jormungandr_version_req()
                 .clone(),
         },
-        Some(version) => VersionReq::exact(&version),
+        Some(version) => VersionReq::exact(version),
     };
 
     let release = if load_latest {
-        let gh_release = github::find_matching_release(&version_req)?;
+        let gh_release = github::find_matching_release(version_req)?;
         Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
             Err(ReleaseError::NoCompatibleReleaseInstalled) => {
-                let gh_release = github::find_matching_release(&version_req)?;
+                let gh_release = github::find_matching_release(version_req)?;
                 Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
             }
             Err(err) => return Err(Error::ReleaseLoad(err)),
@@ -132,15 +132,15 @@ fn install(
 
 fn list(cfg: JorupConfig) -> Result<(), Error> {
     for release in list_installed_releases(&cfg).map_err(Error::ReleasesList)? {
-        println!("v{}", release);
+        println!("{}", release);
     }
     Ok(())
 }
 
 fn remove(mut cfg: JorupConfig, version: Version) -> Result<(), Error> {
-    let version_req = VersionReq::exact(&version);
+    let version_req = VersionReq::exact(version);
     let release = Release::load(&mut cfg, &version_req).map_err(Error::ReleaseLoad)?;
-    std::fs::remove_dir(release.dir()).map_err(Error::RemoveRelease)?;
+    std::fs::remove_dir_all(release.dir()).map_err(Error::RemoveRelease)?;
 
     Ok(())
 }
