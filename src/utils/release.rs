@@ -8,7 +8,7 @@ use crate::{
 use std::{
     fs::{self, File},
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use thiserror::Error;
 
@@ -85,8 +85,8 @@ impl Release {
         let install_jormungandr = bin_dir.join("jormungandr");
         let install_jcli = bin_dir.join("jcli");
 
-        std::fs::copy(self.get_jormungandr(), install_jormungandr).unwrap();
-        std::fs::copy(self.get_jcli(), install_jcli).unwrap();
+        create_symlink(self.get_jormungandr(), install_jormungandr).unwrap();
+        create_symlink(self.get_jcli(), install_jcli).unwrap();
 
         Ok(())
     }
@@ -174,4 +174,14 @@ impl Release {
     pub fn dir(&self) -> &PathBuf {
         &self.path
     }
+}
+
+#[cfg(unix)]
+fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    std::os::unix::fs::symlink(src, dst)
+}
+
+#[cfg(windows)]
+fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    std::os::windows::fs::symlink_file(src, dst)
 }
