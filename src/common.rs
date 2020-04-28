@@ -1,4 +1,4 @@
-use crate::utils::download_file;
+use crate::utils::download::Client;
 use std::{collections::BTreeSet, io, path::PathBuf};
 use thiserror::Error;
 
@@ -135,19 +135,20 @@ impl JorupConfig {
         self.offline
     }
 
-    pub fn sync_jorfile(&self) -> Result<(), Error> {
+    pub fn sync_jorfile(&self, client: &mut Client) -> Result<(), Error> {
         // do not sync if the jorfile was given as parameter of the
         // command line or if `--offline`
         if self.jor_file.is_some() || self.offline {
             return Ok(());
         }
 
-        download_file(
-            "jorfile",
-            "https://raw.githubusercontent.com/input-output-hk/jorup/master/jorfile.json",
-            self.jorfile(),
-        )
-        .map_err(Error::CannotSyncRegistry)
+        client
+            .download_file(
+                "jorfile",
+                "https://raw.githubusercontent.com/input-output-hk/jorup/master/jorfile.json",
+                self.jorfile(),
+            )
+            .map_err(Error::CannotSyncRegistry)
     }
 
     pub fn load_jor(&mut self) -> Result<&crate::config::Config, Error> {

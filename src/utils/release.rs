@@ -1,6 +1,7 @@
 use crate::{
     common::JorupConfig,
     utils::{
+        download::Client,
         github,
         version::{Version, VersionReq},
     },
@@ -159,8 +160,9 @@ impl Release {
         Ok(())
     }
 
-    pub fn asset_remote(&self) -> Result<String, Error> {
-        let release = github::find_matching_release(VersionReq::exact(self.version.clone()))?;
+    pub fn asset_remote(&self, client: &mut Client) -> Result<String, Error> {
+        let release =
+            github::find_matching_release(client, VersionReq::exact(self.version.clone()))?;
         match release.get_asset_url(TARGET) {
             Some(url) => Ok(url.to_string()),
             None => Err(Error::AssetNotFound),

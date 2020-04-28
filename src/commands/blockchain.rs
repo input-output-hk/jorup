@@ -1,4 +1,7 @@
-use crate::common::JorupConfig;
+use crate::{
+    common::JorupConfig,
+    utils::download::{self, Client},
+};
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -17,13 +20,16 @@ pub enum Error {
     SyncFailed(#[source] crate::common::Error),
     #[error("Failed to load jorfile.json")]
     JorfileLoadFailed(#[source] crate::common::Error),
+    #[error("Failed to create the downloader client")]
+    DownloaderCreate(#[source] download::Error),
 }
 
 impl Command {
     pub fn run(self, mut cfg: JorupConfig) -> Result<(), Error> {
         match self {
             Command::Update => {
-                cfg.sync_jorfile().map_err(Error::SyncFailed)?;
+                let mut client = Client::new().map_err(Error::DownloaderCreate)?;
+                cfg.sync_jorfile(&mut client).map_err(Error::SyncFailed)?;
             }
             Command::List => {
                 let config = cfg.load_jor().map_err(Error::JorfileLoadFailed)?;

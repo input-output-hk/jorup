@@ -2,7 +2,8 @@ use crate::{
     common::JorupConfig,
     utils::{
         blockchain::Blockchain,
-        download_file, github,
+        download::{self, Client},
+        github,
         release::{list_installed_releases, Error as ReleaseError, Release},
         version::{Version, VersionReq},
     },
@@ -48,11 +49,13 @@ pub enum Error {
     #[error("Failed to load a release")]
     ReleaseLoad(#[source] ReleaseError),
     #[error("Cannot download and install an update")]
-    CannotUpdate(#[source] crate::utils::download::Error),
+    CannotUpdate(#[source] download::Error),
     #[error("Error while listing releases")]
     ReleasesList(#[source] ReleaseError),
     #[error("Failed to remove a release")]
     RemoveRelease(#[source] std::io::Error),
+    #[error("Failed to create the downloader client")]
+    DownloaderCreate(#[source] download::Error),
 }
 
 impl Command {
@@ -95,29 +98,34 @@ fn install(
         Some(version) => VersionReq::exact(version),
     };
 
+    let mut client = Client::new().map_err(Error::DownloaderCreate)?;
+
     let release = if load_latest {
-        let gh_release = github::find_matching_release(version_req)?;
+        let gh_release = github::find_matching_release(&mut client, version_req)?;
         Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
             Err(ReleaseError::NoCompatibleReleaseInstalled) => {
-                let gh_release = github::find_matching_release(version_req)?;
+                let gh_release = github::find_matching_release(&mut client, version_req)?;
                 Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
             }
             Err(err) => return Err(Error::ReleaseLoad(err)),
         }
     };
 
-    let asset = release.asset_remote().map_err(Error::ReleaseLoad)?;
+    let asset = release
+        .asset_remote(&mut client)
+        .map_err(Error::ReleaseLoad)?;
 
     if release.asset_need_fetched() {
-        download_file(
-            &release.get_asset().display().to_string(),
-            &asset.as_ref(),
-            release.get_asset(),
-        )
-        .map_err(Error::CannotUpdate)?;
+        client
+            .download_file(
+                &release.get_asset().display().to_string(),
+                &asset.as_ref(),
+                release.get_asset(),
+            )
+            .map_err(Error::CannotUpdate)?;
         println!("**** asset downloaded");
     }
 

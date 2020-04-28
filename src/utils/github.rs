@@ -1,4 +1,4 @@
-use super::download::download_to_writer;
+use super::download::{self, Client};
 use crate::utils::version::{SemVerError, Version, VersionReq};
 use chrono::{offset::Utc, DateTime};
 use serde::Deserialize;
@@ -29,34 +29,35 @@ struct AssetDef {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to fetch releases")]
-    CannotGetReleaseData(#[from] reqwest::Error),
+    CannotGetReleaseData(#[from] download::Error),
     #[error("Cannot parse the release data")]
     MalformedReleaseData(#[from] serde_json::Error),
     #[error("No release matching {0}")]
     ReleaseNotFound(VersionReq),
 }
 
-fn download_release_by_url(url: &str) -> Result<ReleaseDef, Error> {
+fn download_release_by_url(client: &mut Client, url: &str) -> Result<ReleaseDef, Error> {
     let mut release_data_raw: Vec<u8> = Vec::new();
-    download_to_writer("GitHub release", &url, &mut release_data_raw)?;
+    client.download_to_writer("GitHub release", &url, &mut release_data_raw)?;
     serde_json::from_slice(&release_data_raw).map_err(Into::into)
 }
 
-fn get_exact_release(version: VersionReq) -> Result<Release, Error> {
+fn get_exact_release(client: &mut Client, version: VersionReq) -> Result<Release, Error> {
     let version = version.into_version().unwrap();
     let url = format!(
         "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/{}",
         version.to_git_tag(),
     );
-    let release_def = download_release_by_url(&url)?;
+    let release_def = download_release_by_url(client, &url)?;
     Ok(Release {
         version,
         assets: release_def.assets,
     })
 }
 
-fn get_latest_release() -> Result<Release, Error> {
+fn get_latest_release(client: &mut Client) -> Result<Release, Error> {
     let release_def = download_release_by_url(
+        client,
         "https://api.github.com/repos/input-output-hk/jormungandr/releases/latest",
     )?;
     let version = Version::from_git_tag(&release_def.tag_name).unwrap();
@@ -66,9 +67,10 @@ fn get_latest_release() -> Result<Release, Error> {
     })
 }
 
-fn get_nightly_release() -> Result<Release, Error> {
-    let latest = get_latest_release()?;
+fn get_nightly_release(client: &mut Client) -> Result<Release, Error> {
+    let latest = get_latest_release(client)?;
     let release_def = download_release_by_url(
+        client,
         "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/nightly",
     )?;
     let version = Version::from_git_tag(&release_def.tag_name)
@@ -80,9 +82,9 @@ fn get_nightly_release() -> Result<Release, Error> {
     })
 }
 
-fn find_release_by_req(version_req: &VersionReq) -> Result<Release, Error> {
+fn find_release_by_req(client: &mut Client, version_req: &VersionReq) -> Result<Release, Error> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
-    download_to_writer(
+    client.download_to_writer(
         "GitHub releases",
         "https://api.github.com/repos/input-output-hk/jormungandr/releases",
         &mut releases_data_raw,
@@ -108,12 +110,15 @@ fn find_release_by_req(version_req: &VersionReq) -> Result<Release, Error> {
     }
 }
 
-pub fn find_matching_release(version_req: VersionReq) -> Result<Release, Error> {
+pub fn find_matching_release(
+    client: &mut Client,
+    version_req: VersionReq,
+) -> Result<Release, Error> {
     match version_req {
-        VersionReq::Latest => get_latest_release(),
-        VersionReq::Nightly => get_nightly_release(),
-        VersionReq::Stable(_) => find_release_by_req(&version_req),
-        VersionReq::ExactStable(_) => get_exact_release(version_req),
+        VersionReq::Latest => get_latest_release(client),
+        VersionReq::Nightly => get_nightly_release(client),
+        VersionReq::Stable(_) => find_release_by_req(client, &version_req),
+        VersionReq::ExactStable(_) => get_exact_release(client, version_req),
     }
 }
 
