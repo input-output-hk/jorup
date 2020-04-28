@@ -23,6 +23,10 @@ impl Config {
     pub fn get_blockchain(&self, name: &str) -> Option<&Blockchain> {
         self.0.iter().find(|blockchain| blockchain.name() == name)
     }
+
+    pub fn blockchains(&self) -> &[Blockchain] {
+        &self.0
+    }
 }
 
 impl Blockchain {
