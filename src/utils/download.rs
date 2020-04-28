@@ -5,7 +5,7 @@ use thiserror::Error;
 
 static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
-const INDICATIF_TEMPLATE: &'static str =
+const INDICATIF_TEMPLATE: &str =
     "[{elapsed_precise}] [{bar:40.cyan/blue}] {msg} {bytes}/{total_bytes} ({bytes_per_sec}, {eta})";
 const INDICATIF_LENGTH: u64 = 100;
 
@@ -119,7 +119,7 @@ where
 {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write_all(&buf)?;
-        self.written = self.written + buf.len() as u64;
+        self.written += buf.len() as u64;
         self.progress.set_position(self.written);
         Ok(buf.len())
     }

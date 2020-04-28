@@ -46,11 +46,9 @@ impl JorupConfig {
         std::fs::create_dir_all(&home_dir)
             .map_err(|e| Error::CannotCreateHomeDir(e, home_dir.clone()))?;
 
-        let jor_file = jorfile.map(|jor_file| jor_file.into());
-
         let cfg = JorupConfig {
             home_dir,
-            jor_file,
+            jor_file: jorfile,
             jor: None,
             offline,
         };
@@ -70,13 +68,6 @@ impl JorupConfig {
             .map_err(|e| Error::CannotCreateInitDir(e, self.release_dir()))?;
 
         Ok(())
-    }
-
-    pub fn get_blockchain(&self, blockchain_name: &str) -> Option<&crate::config::Blockchain> {
-        self.jor
-            .as_ref()
-            .map(|config| config.get_blockchain(blockchain_name))
-            .flatten()
     }
 
     fn detect_installed_path(&self) {
@@ -125,10 +116,6 @@ impl JorupConfig {
 
     pub fn release_dir(&self) -> PathBuf {
         self.home_dir.join("release")
-    }
-
-    pub fn jorup_settings_file(&self) -> PathBuf {
-        self.home_dir.join("settings.json")
     }
 
     pub fn offline(&self) -> bool {

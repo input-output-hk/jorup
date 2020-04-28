@@ -115,31 +115,6 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         })
     }
 
-    pub fn override_jormungandr<P>(&mut self, jormungandr: P) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-    {
-        let jormungandr = jormungandr.as_ref();
-        let jormungandr = if jormungandr.is_relative() {
-            std::env::current_dir().unwrap().join(jormungandr)
-        } else {
-            jormungandr.to_path_buf()
-        };
-
-        let version = get_version("jormungandr ", &jormungandr)?;
-        let version_req = self.blockchain.entry().jormungandr_versions();
-
-        if version_req.matches(&version) {
-            self.jormungandr = Some(jormungandr);
-            Ok(())
-        } else {
-            Err(Error::InvalidJormungandrVersion(
-                version,
-                version_req.clone(),
-            ))
-        }
-    }
-
     pub fn jcli(&mut self) -> Result<Command, Error> {
         if let Some(jcli) = &self.jcli {
             return Ok(Command::new(jcli));

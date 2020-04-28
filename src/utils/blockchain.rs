@@ -30,7 +30,7 @@ impl Blockchain {
         let entry = jor.get_blockchain(blockchain_name).cloned();
 
         if let Some(entry) = entry {
-            Self::new(cfg, entry.clone())
+            Self::new(cfg, entry)
         } else {
             Err(Error::NoEntry)
         }
