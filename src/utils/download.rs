@@ -73,7 +73,9 @@ fn download_internal<W: io::Write>(
         .gzip(true)
         .user_agent(APP_USER_AGENT)
         .build()?;
-    let mut response = client.execute(client.get(url).build()?)?;
+    let mut response = client
+        .execute(client.get(url).build()?)?
+        .error_for_status()?;
     if let Some(total) = response.content_length() {
         progress.set_length(total);
         let mut writer = WriterWithProgress {
