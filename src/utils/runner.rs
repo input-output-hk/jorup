@@ -172,7 +172,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                 let version = get_version("jormungandr ", &jormungandr)?;
                 let version_req = self.blockchain.entry().jormungandr_versions();
 
-                if version_req.matches(&version) {
+                if !version_req.matches(&version) {
                     return Err(Error::InvalidJormungandrVersion(
                         version,
                         version_req.clone(),
