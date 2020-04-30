@@ -1,5 +1,6 @@
-use super::download::download_to_reader;
-use semver::{SemVerError, Version, VersionReq};
+use super::download::{self, Client};
+use crate::utils::version::{SemVerError, Version, VersionReq};
+use chrono::{offset::Utc, DateTime};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -15,6 +16,7 @@ struct ReleasesDef(Vec<ReleaseDef>);
 struct ReleaseDef {
     tag_name: String,
     assets: Vec<AssetDef>,
+    published_at: DateTime<Utc>,
 }
 
 #[derive(Deserialize)]
@@ -27,16 +29,62 @@ struct AssetDef {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to fetch releases")]
-    CannotGetReleaseData(#[from] reqwest::Error),
+    CannotGetReleaseData(#[from] download::Error),
     #[error("Cannot parse the release data")]
     MalformedReleaseData(#[from] serde_json::Error),
     #[error("No release matching {0}")]
     ReleaseNotFound(VersionReq),
 }
 
-pub fn find_matching_release(version_req: &VersionReq) -> Result<Release, Error> {
+fn download_release_by_url(client: &mut Client, url: &str) -> Result<ReleaseDef, Error> {
+    let mut release_data_raw: Vec<u8> = Vec::new();
+    client.download_to_writer("GitHub release", &url, &mut release_data_raw)?;
+    serde_json::from_slice(&release_data_raw).map_err(Into::into)
+}
+
+fn get_exact_release(client: &mut Client, version: VersionReq) -> Result<Release, Error> {
+    let version = version.into_version().unwrap();
+    let url = format!(
+        "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/{}",
+        version.to_git_tag(),
+    );
+    let release_def = download_release_by_url(client, &url)?;
+    Ok(Release {
+        version,
+        assets: release_def.assets,
+    })
+}
+
+fn get_latest_release(client: &mut Client) -> Result<Release, Error> {
+    let release_def = download_release_by_url(
+        client,
+        "https://api.github.com/repos/input-output-hk/jormungandr/releases/latest",
+    )?;
+    let version = Version::from_git_tag(&release_def.tag_name).unwrap();
+    Ok(Release {
+        version,
+        assets: release_def.assets,
+    })
+}
+
+fn get_nightly_release(client: &mut Client) -> Result<Release, Error> {
+    let latest = get_latest_release(client)?;
+    let release_def = download_release_by_url(
+        client,
+        "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/nightly",
+    )?;
+    let version = Version::from_git_tag(&release_def.tag_name)
+        .unwrap()
+        .configure_nightly(latest.version, release_def.published_at);
+    Ok(Release {
+        version,
+        assets: release_def.assets,
+    })
+}
+
+fn find_release_by_req(client: &mut Client, version_req: &VersionReq) -> Result<Release, Error> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
-    download_to_reader(
+    client.download_to_writer(
         "GitHub releases",
         "https://api.github.com/repos/input-output-hk/jormungandr/releases",
         &mut releases_data_raw,
@@ -48,9 +96,8 @@ pub fn find_matching_release(version_req: &VersionReq) -> Result<Release, Error>
         .0
         .into_iter()
         .map(|release_def| {
-            let (_, semver_str) = release_def.tag_name[..].split_at(1);
             Ok::<_, SemVerError>(Release {
-                version: Version::parse(semver_str)?,
+                version: Version::from_git_tag(&release_def.tag_name)?,
                 assets: release_def.assets,
             })
         })
@@ -63,6 +110,18 @@ pub fn find_matching_release(version_req: &VersionReq) -> Result<Release, Error>
     }
 }
 
+pub fn find_matching_release(
+    client: &mut Client,
+    version_req: VersionReq,
+) -> Result<Release, Error> {
+    match version_req {
+        VersionReq::Latest => get_latest_release(client),
+        VersionReq::Nightly => get_nightly_release(client),
+        VersionReq::Stable(_) => find_release_by_req(client, &version_req),
+        VersionReq::ExactStable(_) => get_exact_release(client, version_req),
+    }
+}
+
 impl Release {
     pub fn get_asset_url(&self, platform: &str) -> Option<&str> {
         let ext = if platform.contains("windows") {
@@ -71,12 +130,11 @@ impl Release {
             "tar.gz"
         };
         let expected_name = format!(
-            "jormungandr-v{}-{}-generic.{}",
-            self.version.to_string(),
+            "jormungandr-{}-{}-generic.{}",
+            self.version.to_version_number(),
             platform,
             ext
         );
-        println!("{}", expected_name);
         let maybe_asset = self.assets.iter().find(|asset| asset.name == expected_name);
         maybe_asset.map(|asset| &asset.url[..])
     }

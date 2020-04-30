@@ -1,6 +1,6 @@
 use crate::{
-    common::JorupConfig, utils::channel::Channel, utils::release::Release,
-    utils::runner::RunnerControl,
+    common::JorupConfig,
+    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl},
 };
 use structopt::StructOpt;
 use thiserror::Error;
@@ -8,8 +8,8 @@ use thiserror::Error;
 /// Wallet operations
 #[derive(Debug, StructOpt)]
 pub struct Command {
-    /// The channel to run jormungandr for, jorup uses the default channel otherwise
-    channel: Option<String>,
+    /// The blockchain to run jormungandr for
+    blockchain: String,
 
     /// Force re-creating a wallet if it does exists already
     #[structopt(long)]
@@ -18,11 +18,11 @@ pub struct Command {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Cannot run the node without valid channel")]
-    NoValidChannel(#[source] crate::utils::channel::Error),
+    #[error("Cannot run the node without valid blockchain")]
+    NoValidBlockchain(#[source] crate::utils::blockchain::Error),
     #[error("Cannot run without compatible release")]
     NoCompatibleRelease(#[source] crate::utils::release::Error),
-    #[error("No binaries for this channel")]
+    #[error("No binaries for this blockchain")]
     NoCompatibleBinaries,
     #[error("Unable to start the runner controller")]
     CannotStartRunnerController(#[source] crate::utils::runner::Error),
@@ -35,10 +35,11 @@ pub enum Error {
 impl Command {
     pub fn run(self, mut cfg: JorupConfig) -> Result<(), Error> {
         // prepare entry directory
-        let channel = Channel::load(&mut cfg, self.channel).map_err(Error::NoValidChannel)?;
-        channel.prepare().map_err(Error::NoValidChannel)?;
+        let blockchain =
+            Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
+        blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
-        let release = Release::new(&mut cfg, channel.jormungandr_version_req())
+        let release = Release::load(&mut cfg, blockchain.jormungandr_version_req())
             .map_err(Error::NoCompatibleRelease)?;
 
         if release.asset_need_fetched() {
@@ -46,8 +47,8 @@ impl Command {
             return Err(Error::NoCompatibleBinaries);
         }
 
-        let mut runner =
-            RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
+        let mut runner = RunnerControl::new(&blockchain, &release)
+            .map_err(Error::CannotStartRunnerController)?;
 
         runner
             .get_wallet_secret_key(self.force_create_wallet)

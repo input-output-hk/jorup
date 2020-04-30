@@ -1,19 +1,31 @@
-use crate::common::JorupConfig;
-use crate::utils::github;
-use semver::VersionReq;
-use std::{fs::File, io, path::PathBuf};
+use crate::{
+    common::JorupConfig,
+    utils::{
+        download::Client,
+        github,
+        version::{Version, VersionReq},
+    },
+};
+use std::{
+    fs::{self, File},
+    io,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 const TARGET: &str = env!("TARGET");
 
 pub struct Release {
-    release: github::Release,
-
+    version: Version,
     path: PathBuf,
 }
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Cannot read the release directory: {1}")]
+    ReleaseDirectory(#[source] io::Error, PathBuf),
+    #[error("No compatible release installed")]
+    NoCompatibleReleaseInstalled,
     #[error(transparent)]
     GitHub(#[from] crate::utils::github::Error),
     #[error("Error while creating directory: {1}")]
@@ -30,14 +42,42 @@ pub enum Error {
     CannotUnpack(#[source] zip::result::ZipError, PathBuf),
 }
 
-impl Release {
-    pub fn new(cfg: &mut JorupConfig, req: &VersionReq) -> Result<Self, Error> {
-        let release = github::find_matching_release(req)?;
+pub fn list_installed_releases(cfg: &JorupConfig) -> Result<impl Iterator<Item = Version>, Error> {
+    Ok(fs::read_dir(cfg.release_dir())
+        .map_err(|err| Error::ReleaseDirectory(err, cfg.release_dir()))?
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_type()
+                .map(|etype| etype.is_dir())
+                .unwrap_or_else(|_| false)
+        })
+        .filter_map(|entry| {
+            entry
+                .file_name()
+                .as_os_str()
+                .to_str()
+                .map(|name| Version::parse(name))
+                .and_then(Result::ok)
+        }))
+}
 
-        let path = cfg.release_dir().join(release.version().to_string());
+impl Release {
+    /// load the latest locally installed release
+    pub fn load(cfg: &mut JorupConfig, version_req: &VersionReq) -> Result<Self, Error> {
+        let version = list_installed_releases(cfg)?
+            .filter(|version| version_req.matches(version))
+            .max()
+            .ok_or(Error::NoCompatibleReleaseInstalled)?;
+
+        Self::new(cfg, version)
+    }
+
+    pub fn new(cfg: &mut JorupConfig, version: Version) -> Result<Self, Error> {
+        let path = cfg.release_dir().join(version.to_string());
         std::fs::create_dir_all(&path)
             .map_err(|e| Error::CannotCreateDirectory(e, path.clone()))?;
-        Ok(Release { release, path })
+        Ok(Release { version, path })
     }
 
     pub fn make_default(&self, cfg: &JorupConfig) -> Result<(), Error> {
@@ -46,8 +86,8 @@ impl Release {
         let install_jormungandr = bin_dir.join("jormungandr");
         let install_jcli = bin_dir.join("jcli");
 
-        std::fs::copy(self.get_jormungandr(), install_jormungandr).unwrap();
-        std::fs::copy(self.get_jcli(), install_jcli).unwrap();
+        create_symlink(self.get_jormungandr(), install_jormungandr).unwrap();
+        create_symlink(self.get_jcli(), install_jcli).unwrap();
 
         Ok(())
     }
@@ -120,18 +160,30 @@ impl Release {
         Ok(())
     }
 
-    pub fn asset_remote(&self) -> Result<&str, Error> {
-        match self.release.get_asset_url(TARGET) {
-            Some(url) => Ok(url),
+    pub fn asset_remote(&self, client: &mut Client) -> Result<String, Error> {
+        let release =
+            github::find_matching_release(client, VersionReq::exact(self.version.clone()))?;
+        match release.get_asset_url(TARGET) {
+            Some(url) => Ok(url.to_string()),
             None => Err(Error::AssetNotFound),
         }
     }
 
-    pub fn version(&self) -> &semver::Version {
-        self.release.version()
+    pub fn version(&self) -> &Version {
+        &self.version
     }
 
     pub fn dir(&self) -> &PathBuf {
         &self.path
     }
+}
+
+#[cfg(unix)]
+fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    std::os::unix::fs::symlink(src, dst)
+}
+
+#[cfg(windows)]
+fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    std::os::windows::fs::symlink_file(src, dst)
 }

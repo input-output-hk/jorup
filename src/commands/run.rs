@@ -1,24 +1,24 @@
 use crate::{
-    common::JorupConfig, utils::channel::Channel, utils::release::Release,
-    utils::runner::RunnerControl,
+    common::JorupConfig,
+    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::Version},
 };
-use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;
 
 /// Run the jormungandr
 #[derive(Debug, StructOpt)]
 pub struct Command {
-    /// The channel to run jormungandr for, jorup uses the default channel otherwise
-    channel: Option<String>,
+    /// The blockchain to run jormungandr for
+    blockchain: String,
+
+    /// The version of Jormungandr to run. If not specified, the latest
+    /// compatible version will be used.
+    #[structopt(short, long)]
+    version: Option<Version>,
 
     /// Run the node as a daemon
     #[structopt(long)]
     daemon: bool,
-
-    /// Use this specified binary as executable
-    #[structopt(long)]
-    jormungandr: Option<PathBuf>,
 
     /// Extra parameters to pass on to the node
     ///
@@ -30,16 +30,14 @@ pub struct Command {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Cannot run the node without valid channel")]
-    NoValidChannel(#[source] crate::utils::channel::Error),
+    #[error("Cannot run the node without valid blockchain")]
+    NoValidBlockchain(#[source] crate::utils::blockchain::Error),
     #[error("Cannot run without compatible release")]
     NoCompatibleRelease(#[source] crate::utils::release::Error),
-    #[error("No binaries for this channel")]
+    #[error("No binaries for this blockchain")]
     NoCompatibleBinaries,
     #[error("Unable to start the runner controller")]
     CannotStartRunnerController(#[source] crate::utils::runner::Error),
-    #[error("Cannot override jormungandr binaries")]
-    CannotOverrideBinaries(#[source] crate::utils::runner::Error),
     #[error("Unable to start node")]
     Start(#[source] crate::utils::runner::Error),
 }
@@ -47,25 +45,24 @@ pub enum Error {
 impl Command {
     pub fn run(self, mut cfg: JorupConfig) -> Result<(), Error> {
         // prepare entry directory
-        let channel = Channel::load(&mut cfg, self.channel).map_err(Error::NoValidChannel)?;
-        channel.prepare().map_err(Error::NoValidChannel)?;
+        let blockchain =
+            Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
+        blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
-        let release = Release::new(&mut cfg, channel.jormungandr_version_req())
-            .map_err(Error::NoCompatibleRelease)?;
+        let release = if let Some(version) = self.version {
+            Release::new(&mut cfg, version)
+        } else {
+            Release::load(&mut cfg, blockchain.jormungandr_version_req())
+        }
+        .map_err(Error::NoCompatibleRelease)?;
 
         if release.asset_need_fetched() {
             // asset release is not available
             return Err(Error::NoCompatibleBinaries);
         }
 
-        let mut runner =
-            RunnerControl::new(&channel, &release).map_err(Error::CannotStartRunnerController)?;
-
-        if let Some(jormungandr) = self.jormungandr {
-            runner
-                .override_jormungandr(jormungandr)
-                .map_err(Error::CannotOverrideBinaries)?;
-        }
+        let mut runner = RunnerControl::new(&blockchain, &release)
+            .map_err(Error::CannotStartRunnerController)?;
 
         if self.daemon {
             runner.spawn(self.extra).map_err(Error::Start)
