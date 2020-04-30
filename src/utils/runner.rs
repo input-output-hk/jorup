@@ -161,22 +161,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         Ok(cmd)
     }
 
-    fn prepare_config(&self) -> Result<(), Error> {
-        let content = format!(
-            r###"
-# Generate file, do not update or change the values
-
-rest:
-    listen: "127.0.0.1:{}"
-        "###,
-            select_port_number()?
-        );
-        std::fs::write(self.blockchain.get_node_config(), content)
-            .map_err(|e| Error::CannotWriteFile(e, self.blockchain.get_node_config()))
-    }
-
-    fn prepare(&mut self) -> Result<Command, Error> {
-        self.prepare_config()?;
+    fn prepare(&mut self, default_config: bool) -> Result<Command, Error> {
         let blockchain = self.blockchain;
 
         if let Some(info) = &self.info {
@@ -187,37 +172,37 @@ rest:
 
         cmd.current_dir(blockchain.dir());
 
-        let genesis_block_hash =
-            std::fs::read_to_string(blockchain.get_genesis_block_hash()).unwrap();
+        if default_config {
+            let genesis_block_hash =
+                std::fs::read_to_string(blockchain.get_genesis_block_hash()).unwrap();
 
-        cmd.args(&[
-            "--storage",
-            blockchain.get_node_storage().display().to_string().as_str(),
-            "--config",
-            blockchain.get_node_config().display().to_string().as_str(),
-            "--genesis-block-hash",
-            &genesis_block_hash,
-        ]);
-
-        for peer in blockchain.entry().trusted_peers() {
             cmd.args(&[
-                "--trusted-peer",
-                &format!("{}@{}", peer.address(), peer.id()),
+                "--storage",
+                blockchain.get_node_storage().display().to_string().as_str(),
+                "--genesis-block-hash",
+                &genesis_block_hash,
             ]);
-        }
 
-        if blockchain.get_node_secret().is_file() {
-            cmd.args(&[
-                "--secret",
-                blockchain.get_node_secret().display().to_string().as_str(),
-            ]);
+            for peer in blockchain.entry().trusted_peers() {
+                cmd.args(&[
+                    "--trusted-peer",
+                    &format!("{}@{}", peer.address(), peer.id()),
+                ]);
+            }
+
+            if blockchain.get_node_secret().is_file() {
+                cmd.args(&[
+                    "--secret",
+                    blockchain.get_node_secret().display().to_string().as_str(),
+                ]);
+            }
         }
 
         Ok(cmd)
     }
 
-    pub fn spawn(&mut self, parameters: Vec<String>) -> Result<(), Error> {
-        let mut cmd = self.prepare()?;
+    pub fn spawn(&mut self, default_config: bool, parameters: Vec<String>) -> Result<(), Error> {
+        let mut cmd = self.prepare(default_config)?;
         cmd.args(parameters);
 
         cmd.stdin(Stdio::null());
@@ -246,8 +231,8 @@ rest:
         Ok(())
     }
 
-    pub fn run(mut self, parameters: Vec<String>) -> Result<(), Error> {
-        let mut cmd = self.prepare()?;
+    pub fn run(mut self, default_config: bool, parameters: Vec<String>) -> Result<(), Error> {
+        let mut cmd = self.prepare(default_config)?;
         cmd.args(parameters);
         let mut child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
 
@@ -415,7 +400,7 @@ rest:
         if status.success() {
             Ok(())
         } else {
-            return Err(Error::GenerateKey(key_type.to_owned()));
+            Err(Error::GenerateKey(key_type.to_owned()))
         }
     }
 }
@@ -476,9 +461,4 @@ where
         .trim_start_matches(executable)
         .parse()
         .map_err(|e| Error::ParseVersion(e, cmd.as_ref().to_path_buf(), output))
-}
-
-fn select_port_number() -> Result<u16, Error> {
-    // TODO
-    Ok(8080)
 }

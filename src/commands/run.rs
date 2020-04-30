@@ -2,6 +2,7 @@ use crate::{
     common::JorupConfig,
     utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::Version},
 };
+use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -19,6 +20,15 @@ pub struct Command {
     /// Run the node as a daemon
     #[structopt(long)]
     daemon: bool,
+
+    /// Provide a custom configuration file to the node.
+    ///
+    /// Note that when using this flag `jorup` will not provide any
+    /// configuration to `jormungandr` besides what you specify in the
+    /// configuration file and extra arguments. The default configuration values
+    /// can be obtained with `jorup defaults`.
+    #[structopt(long)]
+    config: Option<PathBuf>,
 
     /// Extra parameters to pass on to the node
     ///
@@ -40,6 +50,8 @@ pub enum Error {
     CannotStartRunnerController(#[source] crate::utils::runner::Error),
     #[error("Unable to start node")]
     Start(#[source] crate::utils::runner::Error),
+    #[error("Cannot transform the configuration file path to its canonical form")]
+    Canonicalize(#[source] std::io::Error),
 }
 
 impl Command {
@@ -64,10 +76,24 @@ impl Command {
         let mut runner = RunnerControl::new(&blockchain, &release)
             .map_err(Error::CannotStartRunnerController)?;
 
+        let default_config = self.config.is_none();
+        let extra = {
+            let mut extra = self.extra;
+            if let Some(config_path) = self.config {
+                let config_path =
+                    std::fs::canonicalize(config_path).map_err(Error::Canonicalize)?;
+                extra.extend_from_slice(&[
+                    "--config".to_string(),
+                    config_path.display().to_string(),
+                ]);
+            }
+            extra
+        };
+
         if self.daemon {
-            runner.spawn(self.extra).map_err(Error::Start)
+            runner.spawn(default_config, extra).map_err(Error::Start)
         } else {
-            runner.run(self.extra).map_err(Error::Start)
+            runner.run(default_config, extra).map_err(Error::Start)
         }
     }
 }
