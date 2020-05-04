@@ -1,6 +1,7 @@
 mod commands;
 mod common;
 mod config;
+mod jormungandr_config;
 mod utils;
 
 use structopt::StructOpt;

@@ -1,4 +1,4 @@
-use crate::{common::JorupConfig, utils::blockchain::Blockchain};
+use crate::{common::JorupConfig, jormungandr_config as config, utils::blockchain::Blockchain};
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -27,38 +27,6 @@ pub enum Error {
 enum ConfigFormat {
     Json,
     Yaml,
-}
-
-mod config {
-    use serde::Serialize;
-    use std::path::PathBuf;
-
-    #[derive(Serialize)]
-    pub struct Config {
-        pub log: Vec<Log>,
-        pub p2p: P2p,
-        pub rest: Rest,
-        pub storage: PathBuf,
-        pub secret_files: Vec<PathBuf>,
-    }
-
-    #[derive(Serialize)]
-    pub struct Log {
-        pub output: String,
-        pub level: String,
-        pub format: String,
-    }
-
-    #[derive(Serialize)]
-    pub struct P2p {
-        pub public_address: String,
-        pub trusted_peers: Vec<crate::config::TrustedPeer>,
-    }
-
-    #[derive(Serialize)]
-    pub struct Rest {
-        pub listen: String,
-    }
 }
 
 #[derive(Debug, Error)]
