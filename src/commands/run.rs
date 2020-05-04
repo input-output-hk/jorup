@@ -2,7 +2,10 @@ use crate::{
     common::JorupConfig,
     utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::Version},
 };
-use std::path::PathBuf;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+};
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -30,6 +33,13 @@ pub struct Command {
     #[structopt(long)]
     config: Option<PathBuf>,
 
+    /// The REST API address to listen
+    ///
+    /// When provided, this will be forwared to to jormungandr as a command line
+    /// argument.
+    #[structopt(long)]
+    rest_listen: Option<SocketAddr>,
+
     /// Extra parameters to pass on to the node
     ///
     /// Add pass on extra parameters to jormungandr for example, this command
@@ -52,6 +62,8 @@ pub enum Error {
     Start(#[source] crate::utils::runner::Error),
     #[error("Cannot transform the configuration file path to its canonical form")]
     Canonicalize(#[source] std::io::Error),
+    #[error("cannot read jormungandr configuration file")]
+    Config(#[source] crate::jormungandr_config::Error),
 }
 
 impl Command {
@@ -79,7 +91,7 @@ impl Command {
         let default_config = self.config.is_none();
         let extra = {
             let mut extra = self.extra;
-            if let Some(config_path) = self.config {
+            if let Some(config_path) = &self.config {
                 let config_path =
                     std::fs::canonicalize(config_path).map_err(Error::Canonicalize)?;
                 extra.extend_from_slice(&[
@@ -90,10 +102,33 @@ impl Command {
             extra
         };
 
+        let rest_addr = match self.rest_listen {
+            Some(addr) => Some(addr),
+            None => match &self.config {
+                Some(config) => crate::jormungandr_config::load_config(config)
+                    .map(|config| config.rest.map(|rest| rest.listen))
+                    .map_err(Error::Config)?,
+                None => {
+                    if default_config {
+                        Some(SocketAddr::new(
+                            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                            8080,
+                        ))
+                    } else {
+                        None
+                    }
+                }
+            },
+        };
+
         if self.daemon {
-            runner.spawn(default_config, extra).map_err(Error::Start)
+            runner
+                .spawn(default_config, rest_addr, extra)
+                .map_err(Error::Start)
         } else {
-            runner.run(default_config, extra).map_err(Error::Start)
+            runner
+                .run(default_config, rest_addr, extra)
+                .map_err(Error::Start)
         }
     }
 }

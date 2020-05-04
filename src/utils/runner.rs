@@ -6,6 +6,7 @@ use crate::utils::{
 use serde::{Deserialize, Serialize};
 use std::{
     io,
+    net::SocketAddr,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -18,7 +19,7 @@ use std::{error, fmt};
 #[serde(deny_unknown_fields)]
 pub struct RunnerInfo {
     pid: u32,
-    rest_port: u16,
+    rest_port: Option<u16>,
 }
 
 pub struct RunnerControl<'a, 'b> {
@@ -75,6 +76,8 @@ pub enum Error {
     InvalidVersionOutput(#[source] std::string::FromUtf8Error, PathBuf),
     #[error("Cannot parse the version of `{1}`: `{2}`")]
     ParseVersion(#[source] semver::SemVerError, PathBuf, String),
+    #[error("REST is not running")]
+    RestNotRunning,
 }
 
 impl<'a, 'b> RunnerControl<'a, 'b> {
@@ -161,7 +164,11 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         Ok(cmd)
     }
 
-    fn prepare(&mut self, default_config: bool) -> Result<Command, Error> {
+    fn prepare(
+        &mut self,
+        default_config: bool,
+        rest_addr: Option<SocketAddr>,
+    ) -> Result<Command, Error> {
         let blockchain = self.blockchain;
 
         if let Some(info) = &self.info {
@@ -171,6 +178,10 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         let mut cmd = self.jormungandr()?;
 
         cmd.current_dir(blockchain.dir());
+
+        if let Some(rest_addr) = rest_addr {
+            cmd.args(&["--rest-listen", &rest_addr.to_string()]);
+        }
 
         if default_config {
             let genesis_block_hash =
@@ -201,8 +212,13 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         Ok(cmd)
     }
 
-    pub fn spawn(&mut self, default_config: bool, parameters: Vec<String>) -> Result<(), Error> {
-        let mut cmd = self.prepare(default_config)?;
+    pub fn spawn(
+        &mut self,
+        default_config: bool,
+        rest_addr: Option<SocketAddr>,
+        parameters: Vec<String>,
+    ) -> Result<(), Error> {
+        let mut cmd = self.prepare(default_config, rest_addr)?;
         cmd.args(parameters);
 
         cmd.stdin(Stdio::null());
@@ -216,7 +232,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
 
         let runner_info = RunnerInfo {
             pid: child.id(),
-            rest_port: 8080,
+            rest_port: rest_addr.as_ref().map(|rest| rest.port()),
         };
 
         std::fs::write(
@@ -231,8 +247,13 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         Ok(())
     }
 
-    pub fn run(mut self, default_config: bool, parameters: Vec<String>) -> Result<(), Error> {
-        let mut cmd = self.prepare(default_config)?;
+    pub fn run(
+        mut self,
+        default_config: bool,
+        rest_addr: Option<SocketAddr>,
+        parameters: Vec<String>,
+    ) -> Result<(), Error> {
+        let mut cmd = self.prepare(default_config, rest_addr)?;
         cmd.args(parameters);
         let mut child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
 
@@ -257,7 +278,10 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                 "shutdown",
                 "get",
                 "--host",
-                &format!("http://localhost:{}/api", info.rest_port),
+                &format!(
+                    "http://localhost:{}/api",
+                    info.rest_port.ok_or(Error::RestNotRunning)?
+                ),
             ])
             .status()
             .map_err(Error::CannotSendStopSignal)?;
@@ -285,7 +309,10 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                 "settings",
                 "get",
                 "--host",
-                &format!("http://localhost:{}/api", info.rest_port),
+                &format!(
+                    "http://localhost:{}/api",
+                    info.rest_port.ok_or(Error::RestNotRunning)?
+                ),
             ])
             .status()
             .map_err(Error::CannotSendStopSignal)?;
@@ -315,7 +342,10 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
                 "stats",
                 "get",
                 "--host",
-                &format!("http://localhost:{}/api", info.rest_port),
+                &format!(
+                    "http://localhost:{}/api",
+                    info.rest_port.ok_or(Error::RestNotRunning)?
+                ),
             ])
             .status()
             .map_err(Error::CannotSendStopSignal)?;
