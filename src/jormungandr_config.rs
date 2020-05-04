@@ -8,10 +8,12 @@ use thiserror::Error;
 
 #[derive(Deserialize, Serialize)]
 pub struct Config {
+    #[serde(default)]
     pub log: Vec<Log>,
-    pub p2p: P2p,
-    pub rest: Rest,
-    pub storage: PathBuf,
+    pub p2p: Option<P2p>,
+    pub rest: Option<Rest>,
+    pub storage: Option<PathBuf>,
+    #[serde(default)]
     pub secret_files: Vec<PathBuf>,
 }
 
@@ -24,7 +26,8 @@ pub struct Log {
 
 #[derive(Deserialize, Serialize)]
 pub struct P2p {
-    pub public_address: String,
+    pub public_address: Option<String>,
+    #[serde(default)]
     pub trusted_peers: Vec<crate::config::TrustedPeer>,
 }
 

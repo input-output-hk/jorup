@@ -47,14 +47,14 @@ impl Command {
                 level: "info".to_string(),
                 format: "plain".to_string(),
             }],
-            p2p: config::P2p {
-                public_address: "/ip4/127.0.0.1/tcp/3000".to_string(),
+            p2p: Some(config::P2p {
+                public_address: Some("/ip4/127.0.0.1/tcp/3000".to_string()),
                 trusted_peers: blockchain.entry().trusted_peers().to_vec(),
-            },
-            rest: config::Rest {
+            }),
+            rest: Some(config::Rest {
                 listen: "127.0.0.1:8080".to_socket_addrs().unwrap().next().unwrap(),
-            },
-            storage: blockchain.get_node_storage(),
+            }),
+            storage: Some(blockchain.get_node_storage()),
             secret_files: vec![blockchain.get_node_secret()],
         };
 
