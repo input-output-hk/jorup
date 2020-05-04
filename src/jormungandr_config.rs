@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{path::PathBuf, net::SocketAddr};
 
 #[derive(Deserialize, Serialize)]
 pub struct Config {
@@ -25,5 +25,5 @@ pub struct P2p {
 
 #[derive(Deserialize, Serialize)]
 pub struct Rest {
-    pub listen: String,
+    pub listen: SocketAddr,
 }

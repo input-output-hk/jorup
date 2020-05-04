@@ -35,6 +35,8 @@ struct ConfigFormatError;
 
 impl Command {
     pub fn run(&self, mut cfg: JorupConfig) -> Result<(), Error> {
+        use std::net::ToSocketAddrs;
+
         let blockchain =
             Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
@@ -50,7 +52,7 @@ impl Command {
                 trusted_peers: blockchain.entry().trusted_peers().to_vec(),
             },
             rest: config::Rest {
-                listen: "127.0.0.1:8080".to_string(),
+                listen: "127.0.0.1:8080".to_socket_addrs().unwrap().next().unwrap(),
             },
             storage: blockchain.get_node_storage(),
             secret_files: vec![blockchain.get_node_secret()],
