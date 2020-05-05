@@ -78,10 +78,6 @@ impl Blockchain {
         self.dir().join("node-storage")
     }
 
-    pub fn get_node_config(&self) -> PathBuf {
-        self.dir().join("node-config.yaml")
-    }
-
     pub fn get_node_secret(&self) -> PathBuf {
         self.dir().join("node-secret.yaml")
     }

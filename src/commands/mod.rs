@@ -1,4 +1,5 @@
 mod blockchain;
+mod defaults;
 mod info;
 mod node;
 mod run;
@@ -60,6 +61,7 @@ enum Command {
     Setup(setup::Command),
     Blockchain(blockchain::Command),
     Node(node::Command),
+    Defaults(defaults::Command),
 }
 
 #[derive(Debug, Error)]
@@ -80,6 +82,8 @@ pub enum Error {
     Setup(#[from] setup::Error),
     #[error(transparent)]
     Node(#[from] node::Error),
+    #[error(transparent)]
+    Defaults(#[from] defaults::Error),
 }
 
 impl RootCmd {
@@ -99,6 +103,7 @@ impl RootCmd {
             Command::Setup(cmd) => cmd.run(cfg)?,
             Command::Blockchain(cmd) => cmd.run(cfg)?,
             Command::Node(cmd) => cmd.run(cfg)?,
+            Command::Defaults(cmd) => cmd.run(cfg)?,
         }
 
         Ok(())

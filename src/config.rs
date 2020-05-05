@@ -1,5 +1,5 @@
 use crate::utils::version::VersionReq;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct Config(Vec<Blockchain>);
@@ -13,7 +13,7 @@ pub struct Blockchain {
     trusted_peers: Vec<TrustedPeer>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedPeer {
     address: String,
     id: String,

@@ -34,7 +34,12 @@ impl Command {
             Command::List => {
                 let config = cfg.load_jor().map_err(Error::JorfileLoadFailed)?;
                 for blockchain in config.blockchains().iter() {
-                    println!("\t{}\n{}\n", blockchain.name(), blockchain.description());
+                    println!(
+                        "\t{}\nGenesis block hash: {}\n{}\n",
+                        blockchain.name(),
+                        blockchain.block0_hash(),
+                        blockchain.description()
+                    );
                 }
             }
         }
