@@ -169,10 +169,6 @@ impl Release {
         }
     }
 
-    pub fn version(&self) -> &Version {
-        &self.version
-    }
-
     pub fn dir(&self) -> &PathBuf {
         &self.path
     }

@@ -1,8 +1,4 @@
-use crate::utils::{
-    blockchain::Blockchain,
-    release::Release,
-    version::{Version, VersionReq},
-};
+use crate::utils::{blockchain::Blockchain, release::Release};
 use serde::{Deserialize, Serialize};
 use std::{
     io,
@@ -22,12 +18,11 @@ pub struct RunnerInfo {
     rest_port: Option<u16>,
 }
 
-pub struct RunnerControl<'a, 'b> {
+pub struct RunnerControl<'a> {
     blockchain: &'a Blockchain,
-    release: &'b Release,
     info: Option<RunnerInfo>,
-    jcli: Option<PathBuf>,
-    jormungandr: Option<PathBuf>,
+    jcli: PathBuf,
+    jormungandr: PathBuf,
 }
 
 #[derive(Debug, Error)]
@@ -40,10 +35,6 @@ pub enum Error {
     Json(#[source] serde_json::Error, PathBuf),
     #[error("Cannot remove running file")]
     CannotRemoveRunnerFile(#[source] io::Error),
-    #[error("Invalid version for jormungandr, Version ({0}) does not match requirement `{1}`")]
-    InvalidJormungandrVersion(Version, VersionReq),
-    #[error("Invalid version for jcli, Version ({0}) does not match requirement `{1}`")]
-    InvalidJcliVersion(Version, VersionReq),
     #[error("Cannot start jormungandr")]
     CannotStartJormungandr(#[source] io::Error),
     #[error("No running node")]
@@ -70,18 +61,12 @@ pub enum Error {
     ReadPublicKey(#[from] io::Error),
     #[error("Cannot generate key {0}")]
     GenerateKey(String),
-    #[error("Cannot get the version of {1}")]
-    GetVersion(#[source] io::Error, PathBuf),
-    #[error("Invalid output from execution of '{0} --version'")]
-    InvalidVersionOutput(#[source] std::string::FromUtf8Error, PathBuf),
-    #[error("Cannot parse the version of `{1}`: `{2}`")]
-    ParseVersion(#[source] semver::SemVerError, PathBuf, String),
     #[error("REST is not running")]
     RestNotRunning,
 }
 
-impl<'a, 'b> RunnerControl<'a, 'b> {
-    pub fn new(blockchain: &'a Blockchain, release: &'b Release) -> Result<Self, Error> {
+impl<'a> RunnerControl<'a> {
+    pub fn new(blockchain: &'a Blockchain, release: &Release) -> Result<Self, Error> {
         let info_file = blockchain.get_runner_file();
 
         let info = if info_file.is_file() {
@@ -109,59 +94,23 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
             None
         };
 
+        let jcli = release.get_jcli();
+        let jormungandr = release.get_jormungandr();
+
         Ok(RunnerControl {
             blockchain,
-            release,
             info,
-            jcli: None,
-            jormungandr: None,
+            jcli,
+            jormungandr,
         })
     }
 
-    pub fn jcli(&mut self) -> Result<Command, Error> {
-        if let Some(jcli) = &self.jcli {
-            return Ok(Command::new(jcli));
-        }
-
-        let jcli = self.release.get_jcli();
-
-        let version = get_version("jcli ", &jcli)?;
-        let version_req = self.blockchain.entry().jormungandr_versions();
-
-        if version_req.matches(&version) {
-            let cmd = Command::new(&jcli);
-            self.jcli = Some(jcli);
-            Ok(cmd)
-        } else {
-            Err(Error::InvalidJcliVersion(version, version_req.clone()))
-        }
+    pub fn jcli(&self) -> Command {
+        Command::new(&self.jcli)
     }
 
-    pub fn jormungandr(&mut self) -> Result<Command, Error> {
-        if let Some(jormungandr) = &self.jormungandr {
-            return Ok(Command::new(jormungandr));
-        }
-
-        let jormungandr = self.release.get_jormungandr();
-
-        match self.release.version() {
-            Version::Nightly(_) => {}
-            _ => {
-                let version = get_version("jormungandr ", &jormungandr)?;
-                let version_req = self.blockchain.entry().jormungandr_versions();
-
-                if !version_req.matches(&version) {
-                    return Err(Error::InvalidJormungandrVersion(
-                        version,
-                        version_req.clone(),
-                    ));
-                }
-            }
-        }
-
-        let cmd = Command::new(&jormungandr);
-        self.jormungandr = Some(jormungandr);
-        Ok(cmd)
+    pub fn jormungandr(&self) -> Command {
+        Command::new(&self.jormungandr)
     }
 
     fn prepare(
@@ -175,7 +124,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
             return Err(Error::NodeRunning(info.pid));
         }
 
-        let mut cmd = self.jormungandr()?;
+        let mut cmd = self.jormungandr();
 
         cmd.current_dir(blockchain.dir());
 
@@ -271,7 +220,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         };
 
         let status = self
-            .jcli()?
+            .jcli()
             .args(&[
                 "rest",
                 "v0",
@@ -302,7 +251,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         };
 
         let status = self
-            .jcli()?
+            .jcli()
             .args(&[
                 "rest",
                 "v0",
@@ -334,7 +283,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         println!("{:#?}", info);
 
         let status = self
-            .jcli()?
+            .jcli()
             .args(&[
                 "rest",
                 "v0",
@@ -377,7 +326,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
 
     fn make_address<PK: AsRef<str>>(&mut self, public_key: PK) -> Result<String, Error> {
         let output = self
-            .jcli()?
+            .jcli()
             .args(&[
                 "address",
                 "account",
@@ -399,7 +348,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         }
 
         let output = self
-            .jcli()?
+            .jcli()
             .args(&[
                 "key",
                 "to-public",
@@ -417,7 +366,7 @@ impl<'a, 'b> RunnerControl<'a, 'b> {
         P: AsRef<Path>,
     {
         let status = self
-            .jcli()?
+            .jcli()
             .args(&[
                 "key",
                 "generate",
@@ -473,22 +422,4 @@ fn check_pid(pid: u32) -> Result<bool, Error> {
             Err(Error::PidCheck(error_code as u64))
         }
     }
-}
-
-fn get_version<P>(executable: &str, cmd: P) -> Result<Version, Error>
-where
-    P: AsRef<Path>,
-{
-    let output = Command::new(cmd.as_ref())
-        .arg("--version")
-        .output()
-        .map_err(|e| Error::GetVersion(e, cmd.as_ref().to_path_buf()))?;
-
-    let output = String::from_utf8(output.stdout)
-        .map_err(|e| Error::InvalidVersionOutput(e, cmd.as_ref().to_path_buf()))?;
-
-    output
-        .trim_start_matches(executable)
-        .parse()
-        .map_err(|e| Error::ParseVersion(e, cmd.as_ref().to_path_buf(), output))
 }
