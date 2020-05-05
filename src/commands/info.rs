@@ -1,6 +1,6 @@
 use crate::{
     common::JorupConfig,
-    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl},
+    utils::{blockchain::Blockchain, runner::RunnerControl},
 };
 use structopt::StructOpt;
 use thiserror::Error;
@@ -16,10 +16,6 @@ pub struct Command {
 pub enum Error {
     #[error("Cannot run the node without valid blockchain")]
     NoValidBlockchain(#[source] crate::utils::blockchain::Error),
-    #[error("Cannot run without compatible release")]
-    NoCompatibleRelease(#[source] crate::utils::release::Error),
-    #[error("No binaries for this blockchain")]
-    NoCompatibleBinaries,
     #[error("Unable to start the runner controller")]
     CannotStartRunnerController(#[source] crate::utils::runner::Error),
     #[error("Cannot collect node's info")]
@@ -32,16 +28,8 @@ impl Command {
             Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
-        let release = Release::load(&mut cfg, blockchain.jormungandr_version_req())
-            .map_err(Error::NoCompatibleRelease)?;
-
-        if release.asset_need_fetched() {
-            // asset release is not available
-            return Err(Error::NoCompatibleBinaries);
-        }
-
-        let mut runner = RunnerControl::new(&blockchain, &release)
-            .map_err(Error::CannotStartRunnerController)?;
+        let mut runner =
+            RunnerControl::load(&blockchain).map_err(Error::CannotStartRunnerController)?;
 
         runner.settings().map_err(Error::CannotCollectInfo)?;
         runner.info().map_err(Error::CannotCollectInfo)

@@ -16,6 +16,8 @@ use std::{error, fmt};
 pub struct RunnerInfo {
     pid: u32,
     rest_port: Option<u16>,
+    jcli: PathBuf,
+    jormungandr: PathBuf,
 }
 
 pub struct RunnerControl<'a> {
@@ -59,7 +61,7 @@ impl<'a> RunnerControl<'a> {
     pub fn new(blockchain: &'a Blockchain, release: &Release) -> Result<Self, Error> {
         let info_file = blockchain.get_runner_file();
 
-        let info = if info_file.is_file() {
+        if info_file.is_file() {
             let info = std::fs::read_to_string(&info_file)
                 .map_err(|e| Error::CannotOpenFile(e, info_file.clone()))?;
             let info: RunnerInfo =
@@ -68,31 +70,54 @@ impl<'a> RunnerControl<'a> {
             let is_up = check_pid(info.pid)?;
 
             if is_up {
-                Some(info)
-            } else {
-                eprintln!("WARN: removing previous runner file");
-                eprintln!("      it seems a previous node was not shutdown properly");
-                eprintln!(
-                    "      check {} for more information",
-                    blockchain.get_log_file().display()
-                );
-                std::fs::remove_file(blockchain.get_runner_file())
-                    .map_err(Error::CannotRemoveRunnerFile)?;
-                None
+                return Err(Error::NodeRunning(info.pid));
             }
-        } else {
-            None
-        };
 
-        let jcli = release.get_jcli();
-        let jormungandr = release.get_jormungandr();
+            eprintln!("WARN: removing previous runner file");
+            eprintln!("      it seems a previous node was not shutdown properly");
+            eprintln!(
+                "      check {} for more information",
+                blockchain.get_log_file().display()
+            );
+            std::fs::remove_file(blockchain.get_runner_file())
+                .map_err(Error::CannotRemoveRunnerFile)?;
+        }
 
         Ok(RunnerControl {
             blockchain,
-            info,
+            info: None,
+            jcli: release.get_jcli(),
+            jormungandr: release.get_jormungandr(),
+        })
+    }
+
+    pub fn load(blockchain: &'a Blockchain) -> Result<Self, Error> {
+        let info_file = blockchain.get_runner_file();
+
+        if !info_file.is_file() {
+            return Err(Error::NoRunningNode);
+        }
+
+        let info = std::fs::read_to_string(&info_file)
+            .map_err(|e| Error::CannotOpenFile(e, info_file.clone()))?;
+        let info: RunnerInfo =
+            serde_json::from_str(&info).map_err(|e| Error::Json(e, info_file))?;
+
+        let is_up = check_pid(info.pid)?;
+
+        if !is_up {
+            return Err(Error::NoRunningNode);
+        }
+
+        let jcli = info.jcli.clone();
+        let jormungandr = info.jormungandr.clone();
+
+        return Ok(RunnerControl {
+            blockchain,
+            info: Some(info),
             jcli,
             jormungandr,
-        })
+        });
     }
 
     pub fn jcli(&self) -> Command {
@@ -172,6 +197,8 @@ impl<'a> RunnerControl<'a> {
         let runner_info = RunnerInfo {
             pid: child.id(),
             rest_port: rest_addr.as_ref().map(|rest| rest.port()),
+            jcli: self.jcli.clone(),
+            jormungandr: self.jormungandr.clone(),
         };
 
         std::fs::write(
