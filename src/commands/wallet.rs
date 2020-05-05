@@ -1,6 +1,6 @@
 use crate::{
     common::JorupConfig,
-    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl},
+    utils::{blockchain::Blockchain, release::Release, jcli::Jcli},
 };
 use structopt::StructOpt;
 use thiserror::Error;
@@ -24,12 +24,10 @@ pub enum Error {
     NoCompatibleRelease(#[source] crate::utils::release::Error),
     #[error("No binaries for this blockchain")]
     NoCompatibleBinaries,
-    #[error("Unable to start the runner controller")]
-    CannotStartRunnerController(#[source] crate::utils::runner::Error),
     #[error("Cannot create new wallet")]
-    CannotCreateWallet(#[source] crate::utils::runner::Error),
+    CannotCreateWallet(#[source] crate::utils::jcli::Error),
     #[error("Cannot get the wallet's address")]
-    CannotGetAddress(#[source] crate::utils::runner::Error),
+    CannotGetAddress(#[source] crate::utils::jcli::Error),
 }
 
 impl Command {
@@ -47,8 +45,7 @@ impl Command {
             return Err(Error::NoCompatibleBinaries);
         }
 
-        let mut runner = RunnerControl::new(&blockchain, &release)
-            .map_err(Error::CannotStartRunnerController)?;
+        let mut runner = Jcli::new(&blockchain, release.get_jcli());
 
         runner
             .get_wallet_secret_key(self.force_create_wallet)
