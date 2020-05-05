@@ -79,6 +79,7 @@ impl Command {
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
         let bin = if let Some(dir) = self.bin {
+            eprintln!("WARN: using custom binaries from {}", dir.display());
             dir
         } else {
             let release = if let Some(version) = self.version {
