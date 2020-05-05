@@ -1,4 +1,4 @@
-use crate::utils::{blockchain::Blockchain, release::Release};
+use crate::utils::blockchain::Blockchain;
 use serde::{Deserialize, Serialize};
 use std::{
     io,
@@ -58,7 +58,7 @@ pub enum Error {
 }
 
 impl<'a> RunnerControl<'a> {
-    pub fn new(blockchain: &'a Blockchain, release: &Release) -> Result<Self, Error> {
+    pub fn new(blockchain: &'a Blockchain, bin_dir: PathBuf) -> Result<Self, Error> {
         let info_file = blockchain.get_runner_file();
 
         if info_file.is_file() {
@@ -86,8 +86,8 @@ impl<'a> RunnerControl<'a> {
         Ok(RunnerControl {
             blockchain,
             info: None,
-            jcli: release.get_jcli(),
-            jormungandr: release.get_jormungandr(),
+            jcli: bin_dir.join("jcli"),
+            jormungandr: bin_dir.join("jormungandr"),
         })
     }
 

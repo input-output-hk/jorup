@@ -40,6 +40,11 @@ pub struct Command {
     #[structopt(long)]
     rest_listen: Option<SocketAddr>,
 
+    /// The directory containing jormungandr and jcli, can be useful for
+    /// development purposes. When provided, the `--version` flag is ignored.
+    #[structopt(long)]
+    bin: Option<PathBuf>,
+
     /// Extra parameters to pass on to the node
     ///
     /// Add pass on extra parameters to jormungandr for example, this command
@@ -73,20 +78,26 @@ impl Command {
             Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
-        let release = if let Some(version) = self.version {
-            Release::new(&mut cfg, version)
+        let bin = if let Some(dir) = self.bin {
+            dir
         } else {
-            Release::load(&mut cfg, blockchain.jormungandr_version_req())
-        }
-        .map_err(Error::NoCompatibleRelease)?;
+            let release = if let Some(version) = self.version {
+                Release::new(&mut cfg, version)
+            } else {
+                Release::load(&mut cfg, blockchain.jormungandr_version_req())
+            }
+            .map_err(Error::NoCompatibleRelease)?;
 
-        if release.asset_need_fetched() {
-            // asset release is not available
-            return Err(Error::NoCompatibleBinaries);
-        }
+            if release.asset_need_fetched() {
+                // asset release is not available
+                return Err(Error::NoCompatibleBinaries);
+            }
 
-        let mut runner = RunnerControl::new(&blockchain, &release)
-            .map_err(Error::CannotStartRunnerController)?;
+            release.dir().clone()
+        };
+
+        let mut runner =
+            RunnerControl::new(&blockchain, bin).map_err(Error::CannotStartRunnerController)?;
 
         let default_config = self.config.is_none();
         let extra = {

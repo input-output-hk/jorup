@@ -1,7 +1,8 @@
 use crate::{
     common::JorupConfig,
-    utils::{blockchain::Blockchain, release::Release, jcli::Jcli},
+    utils::{blockchain::Blockchain, jcli::Jcli, release::Release, version::Version},
 };
+use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -10,6 +11,16 @@ use thiserror::Error;
 pub struct Command {
     /// The blockchain to run jormungandr for
     blockchain: String,
+
+    /// The version of Jormungandr to run. If not specified, the latest
+    /// compatible version will be used.
+    #[structopt(short, long)]
+    version: Option<Version>,
+
+    /// The directory containing jormungandr and jcli, can be useful for
+    /// development purposes. When provided, the `--version` flag is ignored.
+    #[structopt(long)]
+    bin: Option<PathBuf>,
 
     /// Force re-creating a wallet if it does exists already
     #[structopt(long)]
@@ -37,15 +48,25 @@ impl Command {
             Blockchain::load(&mut cfg, &self.blockchain).map_err(Error::NoValidBlockchain)?;
         blockchain.prepare().map_err(Error::NoValidBlockchain)?;
 
-        let release = Release::load(&mut cfg, blockchain.jormungandr_version_req())
+        let bin = if let Some(dir) = self.bin {
+            dir.join("jcli")
+        } else {
+            let release = if let Some(version) = self.version {
+                Release::new(&mut cfg, version)
+            } else {
+                Release::load(&mut cfg, blockchain.jormungandr_version_req())
+            }
             .map_err(Error::NoCompatibleRelease)?;
 
-        if release.asset_need_fetched() {
-            // asset release is not available
-            return Err(Error::NoCompatibleBinaries);
-        }
+            if release.asset_need_fetched() {
+                // asset release is not available
+                return Err(Error::NoCompatibleBinaries);
+            }
 
-        let mut runner = Jcli::new(&blockchain, release.get_jcli());
+            release.dir().join("jcli")
+        };
+
+        let mut runner = Jcli::new(&blockchain, bin);
 
         runner
             .get_wallet_secret_key(self.force_create_wallet)
