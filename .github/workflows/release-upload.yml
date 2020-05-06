@@ -1,0 +1,83 @@
+name: Build and upload release assets
+
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  release_assets:
+    name: Release assets
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        # Linux
+        - {os: ubuntu-latest, toolchain: stable, target: x86_64-unknown-linux-gnu, cross: false}
+        - {os: ubuntu-latest, toolchain: stable, target: aarch64-unknown-linux-gnu, cross: true}
+        - {os: ubuntu-latest, toolchain: stable, target: arm-unknown-linux-gnueabi, cross: true}
+        - {os: ubuntu-latest, toolchain: stable, target: armv7-unknown-linux-gnueabihf, cross: true}
+        # macOS
+        - {os: macos-latest, toolchain: stable, target: x86_64-apple-darwin, cross: false}
+        # Windows
+        - {os: windows-latest, toolchain: stable-x86_64-pc-windows-msvc, target: x86_64-pc-windows-msvc, cross: false}
+
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.config.toolchain }}
+          target: ${{ matrix.config.target }}
+          override: true
+          default: true
+
+      - name: Checkout code
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+
+      - name: Get version tag
+        if: matrix.config.os != 'windows-latest'
+        id: get_version
+        run: echo ::set-output name=version::``${GITHUB_REF#refs/tags/}``
+        shell: bash
+
+      - name: Build jorup
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.config.cross }}
+          command: rustc
+          args: --release --target ${{ matrix.config.target }} -- -C lto
+
+      - name: Rename jorup (*nix)
+        if: matrix.config.os != 'windows-latest'
+        run: mv ./target/release/jorup ./jorup-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
+
+      - name: Rename jorup (Windows)
+        if: matrix.config.os == 'windows-latest'
+        run: mv ./target/release/jorup.exe ./jorup-init.exe
+
+      - name: Get upload url
+        id: get_upload_url
+        shell: bash
+        run: echo ::set-output name=upload_url::``cat $GITHUB_EVENT_PATH | jq .release.upload_url``
+
+      - name: Upload release assets (*nix)
+        if: matrix.config.os != 'windows-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_upload_url.upload_url }}
+          asset_name: ./jorup-init.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload release assets (Windows)
+        if: matrix.config.os == 'windows-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_upload_url.upload_url }}
+          asset_name: ./jorup-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
+          asset_content_type: application/octet-stream
