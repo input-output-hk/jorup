@@ -1,4 +1,5 @@
 use crate::common::JorupConfig;
+use super::Cmd;
 use std::{
     env::{self, consts::EXE_SUFFIX},
     fs, io,
@@ -10,22 +11,28 @@ use thiserror::Error;
 /// Operations for 'jorup'
 #[derive(Debug, StructOpt)]
 pub enum Command {
-    Install {
-        /// Don't change the local PATH variables
-        #[structopt(long)]
-        no_modify_path: bool,
-
-        /// Even if a previous installed jorup is already installed, install
-        /// this new version.
-        #[structopt(short, long)]
-        force: bool,
-    },
+    Install(Install),
     Update,
     Uninstall,
 }
 
+/// Install jorup
+#[derive(Debug, StructOpt)]
+pub struct Install {
+    /// Don't change the local PATH variables
+    #[structopt(long)]
+    no_modify_path: bool,
+
+    /// Even if a previous installed jorup is already installed, install
+    /// this new version.
+    #[structopt(short, long)]
+    force: bool,
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error(transparent)]
+    Common(#[from] crate::common::Error),
     #[error("jorup already installed")]
     AlreadyInstalled,
     #[error("Cannot get the current executable for the installer")]
@@ -49,41 +56,49 @@ pub enum Error {
 impl Command {
     pub fn run(self, cfg: JorupConfig) -> Result<(), Error> {
         match self {
-            Command::Install {
-                no_modify_path,
-                force,
-            } => install(cfg, no_modify_path, force),
+            Command::Install(cmd) => cmd.run(cfg),
             Command::Update => update(cfg),
             Command::Uninstall => uninstall(cfg),
         }
     }
 }
 
-pub fn install(cfg: JorupConfig, no_modify_path: bool, force: bool) -> Result<(), Error> {
-    let bin_dir = cfg.bin_dir();
-    let jorup_file = bin_dir.join(format!("jorup{}", EXE_SUFFIX));
+impl Install {
+    pub fn run(self, cfg: JorupConfig) -> Result<(), Error> {
+        let bin_dir = cfg.bin_dir();
+        let jorup_file = bin_dir.join(format!("jorup{}", EXE_SUFFIX));
 
-    if jorup_file.is_file() {
-        let force = force
-            || dialoguer::Confirmation::new()
-                .with_text("jorup is already installed, overwrite?")
-                .interact()
-                .unwrap();
+        if jorup_file.is_file() {
+            let force = self.force
+                || dialoguer::Confirmation::new()
+                    .with_text("jorup is already installed, overwrite?")
+                    .interact()
+                    .unwrap();
 
-        if !force {
-            return Err(Error::AlreadyInstalled);
+            if !force {
+                return Err(Error::AlreadyInstalled);
+            }
         }
+
+        let jorup_current = env::current_exe().map_err(Error::NoInstallerExecutable)?;
+        fs::copy(&jorup_current, &jorup_file).map_err(|e| Error::Install(e, jorup_file.clone()))?;
+        make_executable(&jorup_file)?;
+
+        if !self.no_modify_path {
+            do_add_to_path(&cfg)?;
+        }
+
+        Ok(())
     }
+}
 
-    let jorup_current = env::current_exe().map_err(Error::NoInstallerExecutable)?;
-    fs::copy(&jorup_current, &jorup_file).map_err(|e| Error::Install(e, jorup_file.clone()))?;
-    make_executable(&jorup_file)?;
+impl Cmd for Install {
+    type Err = Error;
 
-    if !no_modify_path {
-        do_add_to_path(&cfg)?;
+    fn run(self) -> Result<(), Self::Err> {
+        let cfg = crate::common::JorupConfig::new(None, None, false)?;
+        self.run(cfg)
     }
-
-    Ok(())
 }
 
 pub fn uninstall(_cfg: JorupConfig) -> Result<(), Error> {
