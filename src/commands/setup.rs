@@ -160,6 +160,11 @@ fn do_add_to_path(cfg: &JorupConfig) -> Result<(), Error> {
 
 #[cfg(windows)]
 fn do_add_to_path(cfg: &JorupConfig) -> Result<(), Error> {
+    use std::ptr;
+    use winapi::shared::minwindef::*;
+    use winapi::um::winuser::{
+        SendMessageTimeoutA, HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE,
+    };
     use winreg::enums::*;
     use winreg::RegKey;
 
@@ -179,6 +184,18 @@ fn do_add_to_path(cfg: &JorupConfig) -> Result<(), Error> {
     environment
         .set_value("Path", &new_path)
         .map_err(Error::WinregError)?;
+
+    unsafe {
+        SendMessageTimeoutA(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            0 as WPARAM,
+            "Environment\0".as_ptr() as LPARAM,
+            SMTO_ABORTIFHUNG,
+            5000,
+            ptr::null_mut(),
+        );
+    }
 
     Ok(())
 }
