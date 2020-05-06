@@ -1,10 +1,5 @@
 # jorup: the jormungandr's installer and manager
 
-| CI           | Build Status                                             |
-|--------------|----------------------------------------------------------|
-| Travis       | [![Travis Build Status][travis-badge]][travis-url]       |
-| AppVeyor     | [![AppVeyor Build Status][appveyor-badge]][appveyor-url] |
-
 ## Installation
 
 See https://input-output-hk.github.io/jorup
@@ -86,9 +81,3 @@ Licensed under either of
 * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
-
-<!-- Badges -->
-[travis-url]: https://travis-ci.org/input-output-hk/jorup
-[travis-badge]: https://travis-ci.org/input-output-hk/jorup.svg?branch=master
-[appveyor-url]: https://ci.appveyor.com/project/NicolasDP/jorup
-[appveyor-badge]: https://ci.appveyor.com/api/projects/status/github/input-output-hk/jorup?svg=true
