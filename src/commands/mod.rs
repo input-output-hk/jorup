@@ -7,6 +7,8 @@ mod setup;
 mod shutdown;
 mod wallet;
 
+pub use setup::Install;
+
 use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;

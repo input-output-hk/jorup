@@ -1,5 +1,5 @@
-use crate::common::JorupConfig;
 use super::Cmd;
+use crate::common::JorupConfig;
 use std::{
     env::{self, consts::EXE_SUFFIX},
     fs, io,
