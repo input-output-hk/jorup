@@ -4,6 +4,8 @@ mod config;
 mod jormungandr_config;
 mod utils;
 
+use commands::Cmd;
+use std::error::Error;
 use structopt::StructOpt;
 
 fn main() {
