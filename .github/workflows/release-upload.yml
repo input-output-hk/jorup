@@ -37,7 +37,6 @@ jobs:
           submodules: true
 
       - name: Get version tag
-        if: matrix.config.os != 'windows-latest'
         id: get_version
         run: echo ::set-output name=version::``${GITHUB_REF#refs/tags/}``
         shell: bash
@@ -69,7 +68,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_upload_url.upload_url }}
-          asset_name: ./jorup-init.exe
+          asset_name: ./jorup-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
           asset_content_type: application/octet-stream
 
       - name: Upload release assets (Windows)
@@ -79,5 +78,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_upload_url.upload_url }}
-          asset_name: ./jorup-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
+          asset_name: ./jorup-init.exe
           asset_content_type: application/octet-stream
