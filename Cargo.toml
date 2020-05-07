@@ -34,4 +34,5 @@ flate2 = "1.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
+winreg = "0.7.0"
 zip = "0.5.5"

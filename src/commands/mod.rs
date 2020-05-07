@@ -7,9 +7,17 @@ mod setup;
 mod shutdown;
 mod wallet;
 
+pub use setup::Install;
+
 use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;
+
+pub trait Cmd: StructOpt {
+    type Err: std::error::Error;
+
+    fn run(self) -> Result<(), Self::Err>;
+}
 
 #[derive(Debug, StructOpt)]
 pub struct RootCmd {
@@ -86,8 +94,10 @@ pub enum Error {
     Defaults(#[from] defaults::Error),
 }
 
-impl RootCmd {
-    pub fn run(self) -> Result<(), Error> {
+impl Cmd for RootCmd {
+    type Err = Error;
+
+    fn run(self) -> Result<(), Self::Err> {
         let cfg = crate::common::JorupConfig::new(self.jorup_home, self.jorfile, self.offline)?;
 
         match self.command {

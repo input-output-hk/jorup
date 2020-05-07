@@ -8,9 +8,6 @@ use std::{
 };
 use thiserror::Error;
 
-#[cfg(windows)]
-use std::{error, fmt};
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RunnerInfo {
