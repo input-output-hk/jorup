@@ -124,18 +124,12 @@ pub fn find_matching_release(
 
 impl Release {
     pub fn get_asset_url(&self, platform: &str) -> Option<&str> {
-        let ext = if platform.contains("windows") {
-            "zip"
-        } else {
-            "tar.gz"
-        };
-        let expected_name = format!(
-            "jormungandr-{}-{}-generic.{}",
-            self.version.to_version_number(),
-            platform,
-            ext
-        );
-        let maybe_asset = self.assets.iter().find(|asset| asset.name == expected_name);
+        let expected_name_part = format!("{}-generic", platform);
+        println!("{}", expected_name_part);
+        let maybe_asset = self
+            .assets
+            .iter()
+            .find(|asset| asset.name.contains(&expected_name_part));
         maybe_asset.map(|asset| &asset.url[..])
     }
 
