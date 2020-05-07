@@ -1,5 +1,7 @@
 # jorup: the jormungandr's installer and manager
 
+[![Continuous integration][gh-actions-badge]][gh-actions-link]
+
 ## Installation
 
 See https://input-output-hk.github.io/jorup
@@ -81,3 +83,6 @@ Licensed under either of
 * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
+
+[gh-actions-link]: https://github.com/input-output-hk/jorup/actions?query=workflow%3A%22Continuous+integration%22
+[gh-actions-badge]: https://github.com/input-output-hk/jorup/workflows/Continuous%20integration/badge.svg
