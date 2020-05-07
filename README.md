@@ -12,69 +12,95 @@ See https://input-output-hk.github.io/jorup
 ## Usage
 
 `jorup` is a command line tool to help manage the node under different testnets
-and parameters. While it is still very much **WORK IN PROGRESS** it can already
-be used to follow up with the appropriate installation for a given `Channel`.
+and parameters.
 
-### `Channel`
+### Downloading/updating blockchain configurations
 
-a `Channel` is a possible testnet parameter. There are currently only 3 different
-kind of `channels`: `stable`, `beta` or `nightly`.
+`jorup` is designed to provide multiple network configurations. Some
+configurations (including the incentivized testnet) are maintained in the
+`jorup` repository. To download or update them run:
 
-* `stable` does not exist yet...
-* `beta` is the long running testnet.
-* `nightly` is a short life testnet that is meant for the dev and the community
-  to try out new features, experiment on some bugs and issues.
+	jorup blockchain update
 
-A channel has the following form:
+### Installing/updating the node
 
-```
-channel := <channel-name> [ - <date> ]
-channel-name := stable | beta | nightly
-date := YYYY-MM-DD
-```
+In addition to managing multiple blockchain configurations, you can install,
+update and have several different versions of `jormungandr`.
 
-### Updating the local installation
+You can download the latest version compatible with a particular network. For
+example, to install the latest `jormungandr` run:
 
-The following command will update the locally installed default channel.
+	jorup node install
 
-```jorup update```
+The same command should be used to update the node.
 
-You can update a specific channel by specifying it on the command line 
-options:
+You can also download a version compatible with a particular network:
 
-* `jorup update nightly`: will update to the latest version of nightly available
-  (i.e. it may change to a new version of the blockchain), and will update to the
-  latest release available compatible with this `channel`.
-* `jorup update 'nightly-2019-10-04'` will not update to a new default channel
-  but will instead only update that specific version of a the `nightly` channel.
+	jorup node install itn
 
-To make a default `channel` the default, simply add the command line parameter `--default`.
+or just download the version you want:
+
+	jorup node install -v 0.8.17
+
+To install today's nightly version (**do it on your own risk**):
+
+	jorup node install nightly
 
 ### Starting the node
 
-```jorup run```
+The node can be started with `jorup run`. You should provide the name of the
+network you want to connect:
 
-will start the default node. Specify the `channel` you want to start if you want to start
-another channel than the default.
+	jorup run itn
 
-```jorup run beta```
+If you want to run a specific version of jormungandr, please specify a version:
 
-If you want to start the node in the background, simply add `--daemon`.
+	jorup run itn -v 0.8.17
 
+To run the node in the background, use the `--daemon` flag.
 
 ### Getting the node's info
 
-```jorup info```
+	jorup info itn
 
-Get the info of a background running node. Specify the `channel` you want if you want to get
-info for a specific `channel`.
+Get the info of a background running node. You should specify the network name.
 
 ### Shuting down a background node
 
-```jorup shutdown```
+	jorup shutdown itn
 
-Shutdown a background running node. Specify the `channel` you want if you want to shutdown
-a specific `channel`.
+Shutdown a background running node. You should specify the network name.
+
+### Customizing the node configuration
+
+The first way to customize a node configuration is to provide additional flags
+supported by `jormungandr`:
+
+	jorup run itn -- --enable-explorer
+
+This way of configuring `jormungandr` is limited, because `jorup` also uses
+command line arguments to configure `jormungandr`. For better configuration you
+may want to use a custom configuration file. Steps to build a custom
+configuration file are:
+
+1. Export the current configuration:
+
+   ```jorup defaults itn > config.yaml```
+
+2. Edit a new config in any way you want.
+
+3. Get the genesis block hash for your network (you will need to provide it with
+   a flag):
+
+   ```jorup blockchain list```
+
+4. Run `jorup` with your configuration:
+
+   ```jorup run itn --config config.yaml -- --genesis-block-hash 8e4d2a343f3dcf9330ad9035b3e8d168e6728904262f2c434a4f8f934ec7b676```
+
+Using `--config` prevents `jorup` from adding any additional configuration flags
+when starting `jormungandr`, so you get more freedom with the command line
+options.
 
 ## License
 
