@@ -45,16 +45,6 @@ impl Version {
         }
     }
 
-    pub fn to_version_number(&self) -> String {
-        match self {
-            Version::Nightly(None) => panic!("unconfigured nightly"),
-            Version::Nightly(Some((version, datetime))) => {
-                format!("{}-nightly.{}", version, datetime.format(DATEFMT))
-            }
-            Version::Stable(version) => format!("v{}", version),
-        }
-    }
-
     pub fn configure_nightly(self, last_stable_version: Self, datetime: DateTime<Utc>) -> Self {
         let mut version = match last_stable_version {
             Version::Stable(version) => version,
