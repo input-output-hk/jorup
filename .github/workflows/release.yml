@@ -1,0 +1,89 @@
+name: Create release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  create_release:
+    name: Create release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+  release_assets:
+    name: Release assets
+    needs: create_release
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        # Linux
+        - {os: ubuntu-latest, toolchain: stable, target: x86_64-unknown-linux-gnu, cross: false}
+        - {os: ubuntu-latest, toolchain: stable, target: aarch64-unknown-linux-gnu, cross: true}
+        - {os: ubuntu-latest, toolchain: stable, target: arm-unknown-linux-gnueabi, cross: true}
+        - {os: ubuntu-latest, toolchain: stable, target: armv7-unknown-linux-gnueabihf, cross: true}
+        # macOS
+        - {os: macos-latest, toolchain: stable, target: x86_64-apple-darwin, cross: false}
+        # Windows
+        - {os: windows-latest, toolchain: stable-x86_64-pc-windows-msvc, target: x86_64-pc-windows-msvc, cross: false}
+
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.config.toolchain }}
+          target: ${{ matrix.config.target }}
+          override: true
+          default: true
+
+      - name: Checkout code
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+
+      - name: Get version tag
+        id: get_version
+        run: echo ::set-output name=version::``${GITHUB_REF#refs/tags/}``
+        shell: bash
+
+      - name: Build jorup
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: ${{ matrix.config.cross }}
+          command: rustc
+          args: --release --target ${{ matrix.config.target }} -- -C lto
+
+      - name: Upload release assets (*nix)
+        if: matrix.config.os != 'windows-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_name: jorup-${{ steps.get_version.outputs.version }}-${{ matrix.config.target }}
+          asset_path: ./target/${{ matrix.config.target }}/release/jorup
+          asset_content_type: application/octet-stream
+
+      - name: Upload release assets (Windows)
+        if: matrix.config.os == 'windows-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_name: jorup-init.exe
+          asset_path: ./target/${{ matrix.config.target }}/release/jorup.exe
+          asset_content_type: application/octet-stream

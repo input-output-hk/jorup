@@ -1,9 +1,6 @@
 # jorup: the jormungandr's installer and manager
 
-| CI           | Build Status                                             |
-|--------------|----------------------------------------------------------|
-| Travis       | [![Travis Build Status][travis-badge]][travis-url]       |
-| AppVeyor     | [![AppVeyor Build Status][appveyor-badge]][appveyor-url] |
+[![Continuous integration][gh-actions-badge]][gh-actions-link]
 
 ## Installation
 
@@ -113,8 +110,5 @@ Licensed under either of
 
 at your option.
 
-<!-- Badges -->
-[travis-url]: https://travis-ci.org/input-output-hk/jorup
-[travis-badge]: https://travis-ci.org/input-output-hk/jorup.svg?branch=master
-[appveyor-url]: https://ci.appveyor.com/project/NicolasDP/jorup
-[appveyor-badge]: https://ci.appveyor.com/api/projects/status/github/input-output-hk/jorup?svg=true
+[gh-actions-link]: https://github.com/input-output-hk/jorup/actions?query=workflow%3A%22Continuous+integration%22
+[gh-actions-badge]: https://github.com/input-output-hk/jorup/workflows/Continuous%20integration/badge.svg
