@@ -24,8 +24,8 @@ pub struct Release {
 pub enum Error {
     #[error("Cannot read the release directory: {1}")]
     ReleaseDirectory(#[source] io::Error, PathBuf),
-    #[error("No compatible release installed")]
-    NoCompatibleReleaseInstalled,
+    #[error("No compatible release installed, expecting {0}")]
+    NoCompatibleReleaseInstalled(VersionReq),
     #[error(transparent)]
     GitHub(#[from] crate::utils::github::Error),
     #[error("Error while creating directory: {1}")]
@@ -68,7 +68,10 @@ impl Release {
         let version = list_installed_releases(cfg)?
             .filter(|version| version_req.matches(version))
             .max()
-            .ok_or(Error::NoCompatibleReleaseInstalled)?;
+            .ok_or_else(|| {
+                eprintln!("HINT: run `jorup node install`");
+                Error::NoCompatibleReleaseInstalled(version_req.clone())
+            })?;
 
         Self::new(cfg, version)
     }
