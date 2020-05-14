@@ -140,8 +140,10 @@ impl JorupConfig {
 
     pub fn load_jor(&mut self) -> Result<&crate::config::Config, Error> {
         if self.jor.is_none() {
-            let file = std::fs::File::open(self.jorfile())
-                .map_err(|e| Error::CannotOpenFile(e, self.jorfile()))?;
+            let file = std::fs::File::open(self.jorfile()).map_err(|e| {
+                eprintln!("HINT: run `jorup blockchain update`");
+                Error::CannotOpenFile(e, self.jorfile())
+            })?;
 
             let jor = serde_json::from_reader(file).map_err(|e| Error::Json(e, self.jorfile()))?;
             self.jor = Some(jor);

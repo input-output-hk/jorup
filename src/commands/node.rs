@@ -106,7 +106,7 @@ fn install(
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
-            Err(ReleaseError::NoCompatibleReleaseInstalled) => {
+            Err(ReleaseError::NoCompatibleReleaseInstalled(_)) => {
                 let gh_release = github::find_matching_release(&mut client, version_req)?;
                 Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
             }
