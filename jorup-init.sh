@@ -62,7 +62,7 @@ main() {
 
     if [ ! -x "$_file" ]; then
         printf '%s\n' "Cannot execute $_file (likely because of mounting /tmp as noexec)." 1>&2
-        printf '%s\n' "Please copy the file to a location where you can execute binaries and run ''./jorup${_ext} self install'." 1>&2
+        printf '%s\n' "Please copy the file to a location where you can execute binaries and run ''./jorup${_ext} setup install'." 1>&2
         exit 1
     fi
 
@@ -75,9 +75,9 @@ main() {
             err "Unable to run interactively. Run with -y to accept defaults, --help for additional options"
         fi
 
-        ignore "$_file" self install < /dev/tty
+        ignore "$_file" setup install < /dev/tty
     else
-        ignore "$_file" self install
+        ignore "$_file" setup install
     fi
 
     local _retval=$?
