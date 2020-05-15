@@ -56,6 +56,8 @@ pub enum Error {
     RemoveRelease(#[source] std::io::Error),
     #[error("Failed to create the downloader client")]
     DownloaderCreate(#[source] download::Error),
+    #[error("Error while creating directory: {1}")]
+    CannotCreateDirectory(#[source] std::io::Error, std::path::PathBuf),
 }
 
 impl Command {
@@ -119,13 +121,18 @@ fn install(
         .map_err(Error::ReleaseLoad)?;
 
     if release.asset_need_fetched() {
+        std::fs::create_dir_all(release.dir())
+            .map_err(|e| Error::CannotCreateDirectory(e, release.dir().clone()))?;
         client
             .download_file(
                 &release.get_asset().display().to_string(),
                 &asset.as_ref(),
                 release.get_asset(),
             )
-            .map_err(Error::CannotUpdate)?;
+            .map_err(|e| {
+                std::fs::remove_dir_all(release.dir()).expect("could not remove the release dir");
+                Error::CannotUpdate(e)
+            })?;
         println!("**** asset downloaded");
     }
 

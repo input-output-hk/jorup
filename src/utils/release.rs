@@ -28,8 +28,6 @@ pub enum Error {
     NoCompatibleReleaseInstalled(VersionReq),
     #[error(transparent)]
     GitHub(#[from] crate::utils::github::Error),
-    #[error("Error while creating directory: {1}")]
-    CannotCreateDirectory(#[source] io::Error, PathBuf),
     #[error("Error while opening file: {1}")]
     CannotOpenFile(#[source] io::Error, PathBuf),
     #[error("Asset not found for the current platform")]
@@ -78,8 +76,6 @@ impl Release {
 
     pub fn new(cfg: &mut JorupConfig, version: Version) -> Result<Self, Error> {
         let path = cfg.release_dir().join(version.to_string());
-        std::fs::create_dir_all(&path)
-            .map_err(|e| Error::CannotCreateDirectory(e, path.clone()))?;
         Ok(Release { version, path })
     }
 
