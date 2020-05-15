@@ -66,12 +66,15 @@ impl Release {
         let version = list_installed_releases(cfg)?
             .filter(|version| version_req.matches(version))
             .max()
-            .ok_or_else(|| {
-                eprintln!("HINT: run `jorup node install`");
-                Error::NoCompatibleReleaseInstalled(version_req.clone())
-            })?;
+            .ok_or_else(|| Error::NoCompatibleReleaseInstalled(version_req.clone()))?;
         let path = cfg.release_dir().join(version.to_string());
         Ok(Release { version, path })
+    }
+
+    /// load a potentially not installed release
+    pub fn new_unchecked(cfg: &JorupConfig, version: Version) -> Self {
+        let path = cfg.release_dir().join(version.to_string());
+        Release { version, path }
     }
 
     pub fn make_default(&self, cfg: &JorupConfig) -> Result<(), Error> {

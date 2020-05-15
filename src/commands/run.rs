@@ -92,7 +92,10 @@ impl Command {
             } else {
                 Release::load(&mut cfg, blockchain.jormungandr_version_req())
             }
-            .map_err(Error::NoCompatibleRelease)?;
+            .map_err(|err| {
+                eprintln!("HINT: run `jorup node install`");
+                Error::NoCompatibleRelease(err)
+            })?;
 
             if release.asset_need_fetched() {
                 // asset release is not available
