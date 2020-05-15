@@ -46,8 +46,8 @@ pub enum Error {
     PidCheck(#[source] io::Error),
     #[error("Node already running. PID: {0}")]
     NodeRunning(u32),
-    #[error("Cannot stop running node")]
-    CannotStopNode,
+    #[error("Request to a running node failed")]
+    CannotPerrformRequest,
     #[error("Cannot send shutdown signal to the running node")]
     CannotSendStopSignal(#[source] io::Error),
     #[error("REST is not running")]
@@ -270,7 +270,7 @@ impl<'a> RunnerControl<'a> {
             std::fs::remove_file(self.blockchain.get_runner_file())
                 .map_err(Error::CannotRemoveRunnerFile)
         } else {
-            Err(Error::CannotStopNode)
+            Err(Error::CannotPerrformRequest)
         }
     }
 
@@ -300,7 +300,7 @@ impl<'a> RunnerControl<'a> {
         if status.success() {
             Ok(())
         } else {
-            Err(Error::CannotStopNode)
+            Err(Error::CannotPerrformRequest)
         }
     }
 
@@ -333,7 +333,7 @@ impl<'a> RunnerControl<'a> {
         if status.success() {
             Ok(())
         } else {
-            Err(Error::CannotStopNode)
+            Err(Error::CannotPerrformRequest)
         }
     }
 }
