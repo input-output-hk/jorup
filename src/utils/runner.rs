@@ -4,7 +4,7 @@ use std::{
     io,
     net::SocketAddr,
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
 };
 use thiserror::Error;
 
@@ -129,7 +129,11 @@ impl<'a> RunnerControl<'a> {
         &mut self,
         default_config: bool,
         rest_addr: Option<SocketAddr>,
-    ) -> Result<Command, Error> {
+        parameters: Vec<String>,
+        cin: Stdio,
+        cout: Stdio,
+        cerr: Stdio,
+    ) -> Result<Child, Error> {
         let blockchain = self.blockchain;
 
         if let Some(info) = &self.info {
@@ -170,24 +174,11 @@ impl<'a> RunnerControl<'a> {
             }
         }
 
-        Ok(cmd)
-    }
-
-    pub fn spawn(
-        &mut self,
-        default_config: bool,
-        rest_addr: Option<SocketAddr>,
-        parameters: Vec<String>,
-    ) -> Result<(), Error> {
-        let mut cmd = self.prepare(default_config, rest_addr)?;
         cmd.args(parameters);
 
-        cmd.stdin(Stdio::null());
-        cmd.stdout(Stdio::null());
-        cmd.stderr(
-            std::fs::File::create(self.blockchain.get_log_file())
-                .map_err(|e| Error::CannotOpenFile(e, self.blockchain.get_log_file()))?,
-        );
+        cmd.stdin(cin);
+        cmd.stdout(cout);
+        cmd.stderr(cerr);
 
         let child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
 
@@ -207,6 +198,27 @@ impl<'a> RunnerControl<'a> {
 
         self.info = Some(runner_info);
 
+        Ok(child)
+    }
+
+    pub fn spawn(
+        &mut self,
+        default_config: bool,
+        rest_addr: Option<SocketAddr>,
+        parameters: Vec<String>,
+    ) -> Result<(), Error> {
+        let cerr = std::fs::File::create(self.blockchain.get_log_file())
+            .map_err(|e| Error::CannotOpenFile(e, self.blockchain.get_log_file()))?;
+
+        let _child = self.prepare(
+            default_config,
+            rest_addr,
+            parameters,
+            Stdio::null(),
+            Stdio::null(),
+            Stdio::from(cerr),
+        )?;
+
         Ok(())
     }
 
@@ -216,9 +228,14 @@ impl<'a> RunnerControl<'a> {
         rest_addr: Option<SocketAddr>,
         parameters: Vec<String>,
     ) -> Result<(), Error> {
-        let mut cmd = self.prepare(default_config, rest_addr)?;
-        cmd.args(parameters);
-        let mut child = cmd.spawn().map_err(Error::CannotStartJormungandr)?;
+        let mut child = self.prepare(
+            default_config,
+            rest_addr,
+            parameters,
+            Stdio::inherit(),
+            Stdio::inherit(),
+            Stdio::inherit(),
+        )?;
 
         child
             .wait()
