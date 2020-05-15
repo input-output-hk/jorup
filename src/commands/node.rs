@@ -19,8 +19,8 @@ pub enum Command {
     Install {
         /// Install a particular version of Jormungandr. Cannot be used
         /// alongside --blockchain
-        #[structopt(short, long)]
-        version: Option<Version>,
+        #[structopt(short = "v", long = "version")]
+        version_req: Option<VersionReq>,
 
         /// Install the latest version compatible with the specified blockchain
         #[structopt(short, long)]
@@ -64,10 +64,10 @@ impl Command {
     pub fn run(self, cfg: JorupConfig) -> Result<(), Error> {
         match self {
             Command::Install {
-                version,
+                version_req,
                 blockchain,
                 make_default,
-            } => install(cfg, version, blockchain, make_default),
+            } => install(cfg, version_req, blockchain, make_default),
             Command::List => list(cfg),
             Command::Remove { version } => remove(cfg, version),
         }
@@ -76,7 +76,7 @@ impl Command {
 
 fn install(
     mut cfg: JorupConfig,
-    version: Option<Version>,
+    version_req: Option<VersionReq>,
     blockchain: Option<String>,
     make_default: bool,
 ) -> Result<(), Error> {
@@ -84,20 +84,20 @@ fn install(
         return Err(Error::Offline);
     }
 
-    if version.is_some() && blockchain.is_some() {
+    if version_req.is_some() && blockchain.is_some() {
         return Err(Error::MustNotSpecifyBlockchainAndVersion);
     }
 
-    let load_latest = version.is_none() && blockchain.is_none();
+    let load_latest = version_req.is_none() && blockchain.is_none();
 
-    let version_req = match version {
+    let version_req = match version_req {
         None => match blockchain {
             None => VersionReq::Latest,
             Some(blockchain_name) => Blockchain::load(&mut cfg, &blockchain_name)?
                 .jormungandr_version_req()
                 .clone(),
         },
-        Some(version) => VersionReq::exact(version),
+        Some(version_req) => version_req,
     };
 
     let mut client = Client::new().map_err(Error::DownloaderCreate)?;

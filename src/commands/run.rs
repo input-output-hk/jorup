@@ -1,11 +1,6 @@
 use crate::{
     common::JorupConfig,
-    utils::{
-        blockchain::Blockchain,
-        release::Release,
-        runner::RunnerControl,
-        version::{Version, VersionReq},
-    },
+    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::VersionReq},
 };
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -22,8 +17,8 @@ pub struct Command {
 
     /// The version of Jormungandr to run. If not specified, the latest
     /// compatible version will be used.
-    #[structopt(short, long)]
-    version: Option<Version>,
+    #[structopt(short = "v", long = "version")]
+    version_req: Option<VersionReq>,
 
     /// Run the node as a daemon
     #[structopt(long)]
@@ -87,8 +82,8 @@ impl Command {
             eprintln!("WARN: using custom binaries from {}", dir.display());
             dir
         } else {
-            let release = if let Some(version) = self.version {
-                Release::load(&mut cfg, &VersionReq::exact(version))
+            let release = if let Some(version_req) = self.version_req {
+                Release::load(&mut cfg, &version_req)
             } else {
                 Release::load(&mut cfg, blockchain.jormungandr_version_req())
             }

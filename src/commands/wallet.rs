@@ -1,11 +1,6 @@
 use crate::{
     common::JorupConfig,
-    utils::{
-        blockchain::Blockchain,
-        jcli::Jcli,
-        release::Release,
-        version::{Version, VersionReq},
-    },
+    utils::{blockchain::Blockchain, jcli::Jcli, release::Release, version::VersionReq},
 };
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -19,8 +14,8 @@ pub struct Command {
 
     /// The version of Jormungandr to run. If not specified, the latest
     /// compatible version will be used.
-    #[structopt(short, long)]
-    version: Option<Version>,
+    #[structopt(short = "v", long = "version")]
+    version_req: Option<VersionReq>,
 
     /// The directory containing jormungandr and jcli, can be useful for
     /// development purposes. When provided, the `--version` flag is ignored.
@@ -57,8 +52,8 @@ impl Command {
             eprintln!("WARN: using custom binaries from {}", dir.display());
             dir.join("jcli")
         } else {
-            let release = if let Some(version) = self.version {
-                Release::load(&mut cfg, &VersionReq::exact(version))
+            let release = if let Some(version_req) = self.version_req {
+                Release::load(&mut cfg, &version_req)
             } else {
                 Release::load(&mut cfg, blockchain.jormungandr_version_req())
             }
