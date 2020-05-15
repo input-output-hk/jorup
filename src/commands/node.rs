@@ -104,13 +104,15 @@ fn install(
 
     let release = if load_latest {
         let gh_release = github::find_matching_release(&mut client, version_req)?;
-        Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
+        let version_req = VersionReq::exact(gh_release.version().clone());
+        Release::load(&mut cfg, &version_req).map_err(Error::ReleaseLoad)?
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
             Err(ReleaseError::NoCompatibleReleaseInstalled(_)) => {
                 let gh_release = github::find_matching_release(&mut client, version_req)?;
-                Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
+                let version_req = VersionReq::exact(gh_release.version().clone());
+                Release::load(&mut cfg, &version_req).map_err(Error::ReleaseLoad)?
             }
             Err(err) => return Err(Error::ReleaseLoad(err)),
         }

@@ -1,6 +1,11 @@
 use crate::{
     common::JorupConfig,
-    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::Version},
+    utils::{
+        blockchain::Blockchain,
+        release::Release,
+        runner::RunnerControl,
+        version::{Version, VersionReq},
+    },
 };
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -83,7 +88,7 @@ impl Command {
             dir
         } else {
             let release = if let Some(version) = self.version {
-                Release::new(&mut cfg, version)
+                Release::load(&mut cfg, &VersionReq::exact(version))
             } else {
                 Release::load(&mut cfg, blockchain.jormungandr_version_req())
             }

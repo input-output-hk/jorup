@@ -70,11 +70,6 @@ impl Release {
                 eprintln!("HINT: run `jorup node install`");
                 Error::NoCompatibleReleaseInstalled(version_req.clone())
             })?;
-
-        Self::new(cfg, version)
-    }
-
-    pub fn new(cfg: &mut JorupConfig, version: Version) -> Result<Self, Error> {
         let path = cfg.release_dir().join(version.to_string());
         Ok(Release { version, path })
     }

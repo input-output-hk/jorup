@@ -1,6 +1,11 @@
 use crate::{
     common::JorupConfig,
-    utils::{blockchain::Blockchain, jcli::Jcli, release::Release, version::Version},
+    utils::{
+        blockchain::Blockchain,
+        jcli::Jcli,
+        release::Release,
+        version::{Version, VersionReq},
+    },
 };
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -53,7 +58,7 @@ impl Command {
             dir.join("jcli")
         } else {
             let release = if let Some(version) = self.version {
-                Release::new(&mut cfg, version)
+                Release::load(&mut cfg, &VersionReq::exact(version))
             } else {
                 Release::load(&mut cfg, blockchain.jormungandr_version_req())
             }
