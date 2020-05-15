@@ -41,7 +41,7 @@ impl Version {
         }
 
         if version.starts_with("nightly") {
-            let mut parts = version.splitn(2, ".");
+            let mut parts = version.splitn(2, '.');
             let date: u32 = parts
                 .nth(1)
                 .ok_or(VersionError::Nightly)?
@@ -96,7 +96,7 @@ impl VersionReq {
         }
         if version_req
             .chars()
-            .nth(0)
+            .next()
             .map(|c| c.is_numeric())
             .unwrap_or(false)
         {

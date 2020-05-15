@@ -108,7 +108,7 @@ impl<'a> Jcli<'a> {
         if status.success() {
             Ok(())
         } else {
-            return Err(Error::GenerateKey(key_type.to_owned()));
+            Err(Error::GenerateKey(key_type.to_owned()))
         }
     }
 }

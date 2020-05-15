@@ -109,12 +109,12 @@ impl<'a> RunnerControl<'a> {
         let jcli = info.jcli.clone();
         let jormungandr = info.jormungandr.clone();
 
-        return Ok(RunnerControl {
+        Ok(RunnerControl {
             blockchain,
             info: Some(info),
             jcli,
             jormungandr,
-        });
+        })
     }
 
     pub fn jcli(&self) -> Command {
