@@ -47,6 +47,10 @@ Root: HKCU; \
 [Icons]
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}/../release"
+Type: filesandordirs; Name: "{app}/../jorfile.json"
+
 [Code]
 
 function PathNeedUpdate: boolean;
@@ -78,4 +82,10 @@ begin
   if CurUninstallStep = usUninstall
   then
     PathUninstall;
+  if CurUninstallStep = usDone
+  then
+    MsgBox(
+      ExpandConstant('Your data (keys, configuration files) still remains in {app}. Take care of it.'), 
+      mbInformation,
+      MB_OK);
 end;
