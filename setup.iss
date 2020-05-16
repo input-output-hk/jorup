@@ -32,7 +32,7 @@ UsePreviousAppDir=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "{#SourcePath}\target\release\jorup.exe"; \
+Source: "{#SourcePath}\target\x86_64-pc-windows-msvc\release\jorup.exe"; \
   DestDir: "{app}"; \
   Flags: ignoreversion
 
