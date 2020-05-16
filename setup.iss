@@ -32,8 +32,31 @@ UsePreviousAppDir=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "{#SourcePath}\target\release\jorup.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourcePath}\target\release\jorup.exe"; \
+  DestDir: "{app}"; \
+  Flags: ignoreversion
+
+[Registry]
+Root: HKCU; \
+  Subkey: "Environment"; \
+  ValueType: expandsz; \
+  ValueName: "Path"; \
+  ValueData: "{app};{olddata}"; \
+  Check: PathNeedUpdate()
 
 [Icons]
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
+[Code]
+
+function PathNeedUpdate: boolean;
+var
+  needle, haystack: String;
+begin
+  needle := ExpandConstant('{app};');
+  if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', haystack)
+  then
+    Result := Pos(needle, haystack) = 0
+  else
+    Result := True;
+end;
