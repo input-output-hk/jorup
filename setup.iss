@@ -60,3 +60,22 @@ begin
   else
     Result := True;
 end;
+
+procedure PathUninstall;
+var
+  needle, path: String;
+begin
+  needle := ExpandConstant('{app};');
+  if RegQueryStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', path)
+  then
+    if StringChangeEx(path, needle, '', False) > 0
+    then
+      RegWriteStringValue(HKEY_CURRENT_USER, 'Environment', 'Path', path);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall
+  then
+    PathUninstall;
+end;
