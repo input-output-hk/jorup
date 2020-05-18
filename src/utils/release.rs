@@ -68,7 +68,11 @@ impl Release {
             .max()
             .ok_or_else(|| Error::NoCompatibleReleaseInstalled(version_req.clone()))?;
         let path = cfg.release_dir().join(version.to_string());
-        Ok(Release { version, path })
+        let release = Release { version, path };
+        if release.asset_need_open() {
+            return Err(Error::NoCompatibleReleaseInstalled(version_req.clone()));
+        }
+        Ok(release)
     }
 
     /// load a potentially not installed release
