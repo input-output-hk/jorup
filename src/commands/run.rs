@@ -21,7 +21,7 @@ pub struct Command {
     version_req: Option<VersionReq>,
 
     /// Run the node as a daemon
-    #[structopt(long)]
+    #[structopt(short, long)]
     daemon: bool,
 
     /// Provide a custom configuration file to the node.
