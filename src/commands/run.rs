@@ -80,7 +80,7 @@ impl Command {
 
         let bin = if let Some(dir) = self.bin {
             eprintln!("WARN: using custom binaries from {}", dir.display());
-            dir
+            std::fs::canonicalize(dir).map_err(Error::Canonicalize)?
         } else {
             let release = if let Some(version_req) = self.version_req {
                 Release::load(&mut cfg, &version_req)
