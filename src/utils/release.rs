@@ -40,7 +40,7 @@ pub enum Error {
     CannotUnpack(#[source] zip::result::ZipError, PathBuf),
 }
 
-pub fn list_installed_releases(cfg: &JorupConfig) -> Result<impl Iterator<Item = Version>, Error> {
+pub fn list_installed_releases(cfg: &JorupConfig) -> Result<Vec<Release>, Error> {
     Ok(fs::read_dir(cfg.release_dir())
         .map_err(|err| Error::ReleaseDirectory(err, cfg.release_dir()))?
         .filter_map(Result::ok)
@@ -57,22 +57,20 @@ pub fn list_installed_releases(cfg: &JorupConfig) -> Result<impl Iterator<Item =
                 .to_str()
                 .map(|name| Version::parse(name))
                 .and_then(Result::ok)
-        }))
+        })
+        .map(|version| Release::new_unchecked(cfg, version))
+        .filter(|release| !release.asset_need_fetched())
+        .collect())
 }
 
 impl Release {
     /// load the latest locally installed release
-    pub fn load(cfg: &mut JorupConfig, version_req: &VersionReq) -> Result<Self, Error> {
-        let version = list_installed_releases(cfg)?
-            .filter(|version| version_req.matches(version))
-            .max()
-            .ok_or_else(|| Error::NoCompatibleReleaseInstalled(version_req.clone()))?;
-        let path = cfg.release_dir().join(version.to_string());
-        let release = Release { version, path };
-        if release.asset_need_open() {
-            return Err(Error::NoCompatibleReleaseInstalled(version_req.clone()));
-        }
-        Ok(release)
+    pub fn load(cfg: &JorupConfig, version_req: &VersionReq) -> Result<Self, Error> {
+        list_installed_releases(cfg)?
+            .into_iter()
+            .filter(|release| version_req.matches(release.version()))
+            .max_by_key(|release| release.version().clone())
+            .ok_or_else(|| Error::NoCompatibleReleaseInstalled(version_req.clone()))
     }
 
     /// load a potentially not installed release
@@ -172,6 +170,10 @@ impl Release {
 
     pub fn dir(&self) -> &PathBuf {
         &self.path
+    }
+
+    pub fn version(&self) -> &Version {
+        &self.version
     }
 }
 

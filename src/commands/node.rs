@@ -147,7 +147,7 @@ fn install(
 
 fn list(cfg: JorupConfig) -> Result<(), Error> {
     for release in list_installed_releases(&cfg).map_err(Error::ReleasesList)? {
-        println!("{}", release);
+        println!("{}", release.version());
     }
     Ok(())
 }
