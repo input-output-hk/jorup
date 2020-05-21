@@ -28,8 +28,6 @@ pub enum Error {
     NoCompatibleReleaseInstalled(VersionReq),
     #[error(transparent)]
     GitHub(#[from] crate::utils::github::Error),
-    #[error("Error while creating directory: {1}")]
-    CannotCreateDirectory(#[source] io::Error, PathBuf),
     #[error("Error while opening file: {1}")]
     CannotOpenFile(#[source] io::Error, PathBuf),
     #[error("Asset not found for the current platform")]
@@ -42,7 +40,7 @@ pub enum Error {
     CannotUnpack(#[source] zip::result::ZipError, PathBuf),
 }
 
-pub fn list_installed_releases(cfg: &JorupConfig) -> Result<impl Iterator<Item = Version>, Error> {
+pub fn list_installed_releases(cfg: &JorupConfig) -> Result<Vec<Release>, Error> {
     Ok(fs::read_dir(cfg.release_dir())
         .map_err(|err| Error::ReleaseDirectory(err, cfg.release_dir()))?
         .filter_map(Result::ok)
@@ -59,28 +57,26 @@ pub fn list_installed_releases(cfg: &JorupConfig) -> Result<impl Iterator<Item =
                 .to_str()
                 .map(|name| Version::parse(name))
                 .and_then(Result::ok)
-        }))
+        })
+        .map(|version| Release::new_unchecked(cfg, version))
+        .filter(|release| !release.asset_need_fetched())
+        .collect())
 }
 
 impl Release {
     /// load the latest locally installed release
-    pub fn load(cfg: &mut JorupConfig, version_req: &VersionReq) -> Result<Self, Error> {
-        let version = list_installed_releases(cfg)?
-            .filter(|version| version_req.matches(version))
-            .max()
-            .ok_or_else(|| {
-                eprintln!("HINT: run `jorup node install`");
-                Error::NoCompatibleReleaseInstalled(version_req.clone())
-            })?;
-
-        Self::new(cfg, version)
+    pub fn load(cfg: &JorupConfig, version_req: &VersionReq) -> Result<Self, Error> {
+        list_installed_releases(cfg)?
+            .into_iter()
+            .filter(|release| version_req.matches(release.version()))
+            .max_by_key(|release| release.version().clone())
+            .ok_or_else(|| Error::NoCompatibleReleaseInstalled(version_req.clone()))
     }
 
-    pub fn new(cfg: &mut JorupConfig, version: Version) -> Result<Self, Error> {
+    /// load a potentially not installed release
+    pub fn new_unchecked(cfg: &JorupConfig, version: Version) -> Self {
         let path = cfg.release_dir().join(version.to_string());
-        std::fs::create_dir_all(&path)
-            .map_err(|e| Error::CannotCreateDirectory(e, path.clone()))?;
-        Ok(Release { version, path })
+        Release { version, path }
     }
 
     pub fn make_default(&self, cfg: &JorupConfig) -> Result<(), Error> {
@@ -174,6 +170,10 @@ impl Release {
 
     pub fn dir(&self) -> &PathBuf {
         &self.path
+    }
+
+    pub fn version(&self) -> &Version {
+        &self.version
     }
 }
 

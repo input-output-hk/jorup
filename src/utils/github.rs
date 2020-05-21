@@ -1,5 +1,5 @@
 use super::download::{self, Client};
-use crate::utils::version::{SemVerError, Version, VersionReq};
+use crate::utils::version::{Version, VersionError, VersionReq};
 use chrono::{offset::Utc, DateTime};
 use serde::Deserialize;
 use thiserror::Error;
@@ -68,14 +68,13 @@ fn get_latest_release(client: &mut Client) -> Result<Release, Error> {
 }
 
 fn get_nightly_release(client: &mut Client) -> Result<Release, Error> {
-    let latest = get_latest_release(client)?;
     let release_def = download_release_by_url(
         client,
         "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/nightly",
     )?;
     let version = Version::from_git_tag(&release_def.tag_name)
         .unwrap()
-        .configure_nightly(latest.version, release_def.published_at);
+        .configure_nightly(release_def.published_at.date());
     Ok(Release {
         version,
         assets: release_def.assets,
@@ -96,7 +95,7 @@ fn find_release_by_req(client: &mut Client, version_req: &VersionReq) -> Result<
         .0
         .into_iter()
         .map(|release_def| {
-            Ok::<_, SemVerError>(Release {
+            Ok::<_, VersionError>(Release {
                 version: Version::from_git_tag(&release_def.tag_name)?,
                 assets: release_def.assets,
             })

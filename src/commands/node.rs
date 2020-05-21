@@ -19,8 +19,8 @@ pub enum Command {
     Install {
         /// Install a particular version of Jormungandr. Cannot be used
         /// alongside --blockchain
-        #[structopt(short, long)]
-        version: Option<Version>,
+        #[structopt(short = "v", long = "version")]
+        version_req: Option<VersionReq>,
 
         /// Install the latest version compatible with the specified blockchain
         #[structopt(short, long)]
@@ -56,16 +56,18 @@ pub enum Error {
     RemoveRelease(#[source] std::io::Error),
     #[error("Failed to create the downloader client")]
     DownloaderCreate(#[source] download::Error),
+    #[error("Error while creating directory: {1}")]
+    CannotCreateDirectory(#[source] std::io::Error, std::path::PathBuf),
 }
 
 impl Command {
     pub fn run(self, cfg: JorupConfig) -> Result<(), Error> {
         match self {
             Command::Install {
-                version,
+                version_req,
                 blockchain,
                 make_default,
-            } => install(cfg, version, blockchain, make_default),
+            } => install(cfg, version_req, blockchain, make_default),
             Command::List => list(cfg),
             Command::Remove { version } => remove(cfg, version),
         }
@@ -74,7 +76,7 @@ impl Command {
 
 fn install(
     mut cfg: JorupConfig,
-    version: Option<Version>,
+    version_req: Option<VersionReq>,
     blockchain: Option<String>,
     make_default: bool,
 ) -> Result<(), Error> {
@@ -82,33 +84,33 @@ fn install(
         return Err(Error::Offline);
     }
 
-    if version.is_some() && blockchain.is_some() {
+    if version_req.is_some() && blockchain.is_some() {
         return Err(Error::MustNotSpecifyBlockchainAndVersion);
     }
 
-    let load_latest = version.is_none() && blockchain.is_none();
+    let load_latest = version_req.is_none() && blockchain.is_none();
 
-    let version_req = match version {
+    let version_req = match version_req {
         None => match blockchain {
             None => VersionReq::Latest,
             Some(blockchain_name) => Blockchain::load(&mut cfg, &blockchain_name)?
                 .jormungandr_version_req()
                 .clone(),
         },
-        Some(version) => VersionReq::exact(version),
+        Some(version_req) => version_req,
     };
 
     let mut client = Client::new().map_err(Error::DownloaderCreate)?;
 
     let release = if load_latest {
         let gh_release = github::find_matching_release(&mut client, version_req)?;
-        Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
+        Release::new_unchecked(&cfg, gh_release.version().clone())
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
             Err(ReleaseError::NoCompatibleReleaseInstalled(_)) => {
                 let gh_release = github::find_matching_release(&mut client, version_req)?;
-                Release::new(&mut cfg, gh_release.version().clone()).map_err(Error::ReleaseLoad)?
+                Release::new_unchecked(&cfg, gh_release.version().clone())
             }
             Err(err) => return Err(Error::ReleaseLoad(err)),
         }
@@ -119,13 +121,18 @@ fn install(
         .map_err(Error::ReleaseLoad)?;
 
     if release.asset_need_fetched() {
+        std::fs::create_dir_all(release.dir())
+            .map_err(|e| Error::CannotCreateDirectory(e, release.dir().clone()))?;
         client
             .download_file(
                 &release.get_asset().display().to_string(),
                 &asset.as_ref(),
                 release.get_asset(),
             )
-            .map_err(Error::CannotUpdate)?;
+            .map_err(|e| {
+                std::fs::remove_dir_all(release.dir()).expect("could not remove the release dir");
+                Error::CannotUpdate(e)
+            })?;
         println!("**** asset downloaded");
     }
 
@@ -140,7 +147,7 @@ fn install(
 
 fn list(cfg: JorupConfig) -> Result<(), Error> {
     for release in list_installed_releases(&cfg).map_err(Error::ReleasesList)? {
-        println!("{}", release);
+        println!("{}", release.version());
     }
     Ok(())
 }

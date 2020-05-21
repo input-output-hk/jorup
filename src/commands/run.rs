@@ -1,6 +1,6 @@
 use crate::{
     common::JorupConfig,
-    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::Version},
+    utils::{blockchain::Blockchain, release::Release, runner::RunnerControl, version::VersionReq},
 };
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -17,11 +17,11 @@ pub struct Command {
 
     /// The version of Jormungandr to run. If not specified, the latest
     /// compatible version will be used.
-    #[structopt(short, long)]
-    version: Option<Version>,
+    #[structopt(short = "v", long = "version")]
+    version_req: Option<VersionReq>,
 
     /// Run the node as a daemon
-    #[structopt(long)]
+    #[structopt(short, long)]
     daemon: bool,
 
     /// Provide a custom configuration file to the node.
@@ -80,14 +80,17 @@ impl Command {
 
         let bin = if let Some(dir) = self.bin {
             eprintln!("WARN: using custom binaries from {}", dir.display());
-            dir
+            std::fs::canonicalize(dir).map_err(Error::Canonicalize)?
         } else {
-            let release = if let Some(version) = self.version {
-                Release::new(&mut cfg, version)
+            let release = if let Some(version_req) = self.version_req {
+                Release::load(&mut cfg, &version_req)
             } else {
                 Release::load(&mut cfg, blockchain.jormungandr_version_req())
             }
-            .map_err(Error::NoCompatibleRelease)?;
+            .map_err(|err| {
+                eprintln!("HINT: run `jorup node install`");
+                Error::NoCompatibleRelease(err)
+            })?;
 
             if release.asset_need_fetched() {
                 // asset release is not available

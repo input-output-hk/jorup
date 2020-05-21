@@ -1,19 +1,20 @@
-use chrono::{offset::Utc, DateTime};
-use semver::{Version as SemverVersion, VersionReq as SemverVersionReq};
+use chrono::{offset::Utc, Date};
+use semver::{
+    ReqParseError, SemVerError, Version as SemverVersion, VersionReq as SemverVersionReq,
+};
 use serde::{de, Deserialize, Deserializer};
 use std::{
     cmp::{Ordering, PartialOrd},
     fmt,
     str::FromStr,
 };
-
-pub use semver::{ReqParseError, SemVerError};
+use thiserror::Error;
 
 const DATEFMT: &str = "%Y%m%d";
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord)]
 pub enum Version {
-    Nightly(Option<(SemverVersion, DateTime<Utc>)>),
+    Nightly(Option<Date<Utc>>),
     Stable(SemverVersion),
 }
 
@@ -25,15 +26,42 @@ pub enum VersionReq {
     ExactStable(SemverVersion),
 }
 
+#[derive(Debug, Error)]
+pub enum VersionError {
+    #[error(transparent)]
+    Semver(#[from] SemVerError),
+    #[error("invalid nightly version")]
+    Nightly,
+}
+
 impl Version {
-    pub fn parse(version: &str) -> Result<Self, SemVerError> {
+    pub fn parse(version: &str) -> Result<Self, VersionError> {
         if version == "nightly" {
             return Ok(Version::Nightly(None));
         }
-        SemverVersion::parse(version).map(Version::Stable)
+
+        if version.starts_with("nightly") {
+            let mut parts = version.splitn(2, '.');
+            let date: u32 = parts
+                .nth(1)
+                .ok_or(VersionError::Nightly)?
+                .parse()
+                .map_err(|_| VersionError::Nightly)?;
+            let naive_date = chrono::NaiveDate::from_ymd(
+                (date / 10000) as i32,
+                (date % 10000 / 100) as u32,
+                (date % 100) as u32,
+            );
+            let date = Date::from_utc(naive_date, Utc);
+            return Ok(Version::Nightly(Some(date)));
+        }
+
+        SemverVersion::parse(version)
+            .map_err(Into::into)
+            .map(Version::Stable)
     }
 
-    pub fn from_git_tag(version: &str) -> Result<Self, SemVerError> {
+    pub fn from_git_tag(version: &str) -> Result<Self, VersionError> {
         let version = version.trim_start_matches('v');
         Self::parse(version)
     }
@@ -45,25 +73,38 @@ impl Version {
         }
     }
 
-    pub fn configure_nightly(self, last_stable_version: Self, datetime: DateTime<Utc>) -> Self {
-        let mut version = match last_stable_version {
-            Version::Stable(version) => version,
-            Version::Nightly(_) => panic!("only Stable can be provided to this method"),
-        };
-        version.increment_patch();
+    pub fn configure_nightly(self, date: Date<Utc>) -> Self {
         match self {
-            Version::Nightly(_) => Version::Nightly(Some((version, datetime))),
+            Version::Nightly(_) => Version::Nightly(Some(date)),
             v => v,
         }
     }
 }
 
+#[derive(Debug, Error)]
+pub enum VersionReqError {
+    #[error(transparent)]
+    ReqError(#[from] ReqParseError),
+    #[error(transparent)]
+    VersionError(#[from] SemVerError),
+}
+
 impl VersionReq {
-    pub fn parse(version_req: &str) -> Result<Self, ReqParseError> {
+    pub fn parse(version_req: &str) -> Result<Self, VersionReqError> {
         if version_req == "nightly" {
             return Ok(VersionReq::Nightly);
         }
-        SemverVersionReq::parse(version_req).map(VersionReq::Stable)
+        if version_req
+            .chars()
+            .next()
+            .map(|c| c.is_numeric())
+            .unwrap_or(false)
+        {
+            return Ok(VersionReq::ExactStable(SemverVersion::parse(version_req)?));
+        }
+        SemverVersionReq::parse(version_req)
+            .map(VersionReq::Stable)
+            .map_err(Into::into)
     }
 
     pub fn exact(version: Version) -> Self {
@@ -154,7 +195,7 @@ impl<'de> Deserialize<'de> for VersionReq {
 }
 
 impl FromStr for Version {
-    type Err = SemVerError;
+    type Err = VersionError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Version::parse(s)
@@ -162,7 +203,7 @@ impl FromStr for Version {
 }
 
 impl FromStr for VersionReq {
-    type Err = ReqParseError;
+    type Err = VersionReqError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         VersionReq::parse(s)
@@ -173,9 +214,7 @@ impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Version::Nightly(None) => f.write_str("nightly"),
-            Version::Nightly(Some((version, datetime))) => {
-                write!(f, "{}-nightly.{}", version, datetime.format(DATEFMT))
-            }
+            Version::Nightly(Some(datetime)) => write!(f, "nightly.{}", datetime.format(DATEFMT)),
             Version::Stable(version) => f.write_str(&version.to_string()),
         }
     }
