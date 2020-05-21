@@ -66,6 +66,11 @@ jobs:
           command: rustc
           args: --release --target ${{ matrix.config.target }} -- -C lto
 
+      - name: Create Windows installer
+        if: matrix.config.os == 'windows-latest'
+        run: iscc setup.iss
+        shell: powershell
+
       - name: Upload release assets (*nix)
         if: matrix.config.os != 'windows-latest'
         uses: actions/upload-release-asset@v1
@@ -84,6 +89,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_name: jorup-init.exe
-          asset_path: ./target/${{ matrix.config.target }}/release/jorup.exe
+          asset_name: jorup-installer-${{ steps.get_version.outputs.version }}.exe
+          asset_path: ./target/innosetup/jorup-init.exe
           asset_content_type: application/octet-stream
