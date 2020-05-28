@@ -41,7 +41,7 @@ or just download the version you want:
 
 To install today's nightly version (**do it on your own risk**):
 
-	jorup node install nightly
+	jorup node install -v nightly
 
 ### Starting the node
 
