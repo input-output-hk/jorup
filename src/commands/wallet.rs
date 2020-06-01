@@ -6,11 +6,16 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;
 
-/// Wallet operations
+/// Generate a wallet if it does not exist. Output the public key, address, and
+/// secret key path.
 #[derive(Debug, StructOpt)]
 pub struct Command {
     /// The blockchain to run jormungandr for
     blockchain: String,
+
+    /// Address prefix (ignored by node, exists for readability, default: jorup_)
+    #[structopt(default_value = "jorup_")]
+    prefix: String,
 
     /// The version of Jormungandr to run. If not specified, the latest
     /// compatible version will be used.
@@ -39,6 +44,8 @@ pub enum Error {
     CannotCreateWallet(#[source] crate::utils::jcli::Error),
     #[error("Cannot get the wallet's address")]
     CannotGetAddress(#[source] crate::utils::jcli::Error),
+    #[error("Cannot get the wallet's public key")]
+    CannotGetPublicKey(#[source] crate::utils::jcli::Error),
 }
 
 impl Command {
@@ -72,13 +79,18 @@ impl Command {
 
         let mut runner = Jcli::new(&blockchain, bin);
 
-        runner
+        let sk_path = runner
             .get_wallet_secret_key(self.force_create_wallet)
             .map_err(Error::CannotCreateWallet)?;
+
+        let public_key = runner.get_public_key().map_err(Error::CannotGetPublicKey)?;
+
         let address = runner
-            .get_wallet_address()
+            .get_wallet_address(&self.prefix)
             .map_err(Error::CannotGetAddress)?;
 
+        println!("Secret key: {}", sk_path.display());
+        println!("Public key: {}", public_key);
         println!("Wallet: {}", address);
 
         Ok(())

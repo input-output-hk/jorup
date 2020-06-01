@@ -45,22 +45,27 @@ impl<'a> Jcli<'a> {
         Ok(wallet_path)
     }
 
-    pub fn get_wallet_address(&mut self) -> Result<String, Error> {
-        let pk = self.get_public_key(self.blockchain.get_wallet_secret())?;
+    pub fn get_wallet_address(&mut self, prefix: &str) -> Result<String, Error> {
+        let pk = self.get_public_key()?;
 
-        let address = self.make_address(pk.trim_end())?;
+        let address = self.make_address(prefix, pk.trim_end())?;
 
         Ok(address.trim_end().to_owned())
     }
 
-    fn make_address<PK: AsRef<str>>(&mut self, public_key: PK) -> Result<String, Error> {
+    fn make_address<PK: AsRef<str>>(
+        &mut self,
+        prefix: &str,
+        public_key: PK,
+    ) -> Result<String, Error> {
         let output = self
             .command()
             .args(&[
                 "address",
                 "account",
                 "--testing",
-                "--prefix=jorup_",
+                "--prefix",
+                prefix,
                 public_key.as_ref(),
             ])
             .output()
@@ -68,11 +73,10 @@ impl<'a> Jcli<'a> {
         String::from_utf8(output.stdout).map_err(Error::InvalidAddress)
     }
 
-    fn get_public_key<P>(&mut self, secret_key: P) -> Result<String, Error>
-    where
-        P: AsRef<Path>,
-    {
-        if !secret_key.as_ref().is_file() {
+    pub fn get_public_key(&mut self) -> Result<String, Error> {
+        let secret_key = self.get_wallet_secret_key(false)?;
+
+        if !secret_key.is_file() {
             return Err(Error::NoSecretKey);
         }
 
@@ -82,12 +86,14 @@ impl<'a> Jcli<'a> {
                 "key",
                 "to-public",
                 "--input",
-                secret_key.as_ref().display().to_string().as_str(),
+                secret_key.display().to_string().as_str(),
             ])
             .output()
             .map_err(Error::ReadPublicKey)?;
 
-        String::from_utf8(output.stdout).map_err(Error::InvalidAddress)
+        String::from_utf8(output.stdout)
+            .map(|s| s.trim_end().to_string())
+            .map_err(Error::InvalidAddress)
     }
 
     fn gen_secret_key<P>(&mut self, key_type: &str, path: P) -> Result<(), Error>
