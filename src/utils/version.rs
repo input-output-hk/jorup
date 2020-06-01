@@ -79,6 +79,14 @@ impl Version {
             v => v,
         }
     }
+
+    pub fn get_nightly_date(&self) -> Option<&Date<Utc>> {
+        if let Version::Nightly(maybe_date) = &self {
+            maybe_date.as_ref()
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Error)]

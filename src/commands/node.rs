@@ -107,7 +107,18 @@ fn install(
         Release::new_unchecked(&cfg, gh_release.version().clone())
     } else {
         match Release::load(&mut cfg, &version_req) {
-            Ok(release) => release,
+            Ok(release) => {
+                if let Some(date) = release.version().get_nightly_date() {
+                    if date < &chrono::Utc::now().date() {
+                        let gh_release = github::find_matching_release(&mut client, version_req)?;
+                        Release::new_unchecked(&cfg, gh_release.version().clone())
+                    } else {
+                        release
+                    }
+                } else {
+                    release
+                }
+            }
             Err(ReleaseError::NoCompatibleReleaseInstalled(_)) => {
                 let gh_release = github::find_matching_release(&mut client, version_req)?;
                 Release::new_unchecked(&cfg, gh_release.version().clone())
