@@ -27,7 +27,13 @@ pub struct Command {
     #[structopt(long)]
     bin: Option<PathBuf>,
 
-    /// Force re-creating a wallet if it does exists already
+    /// Path to an existing secret key (will be copied to the wallet directory).
+    /// `force_create_wallet` will be ignored. WARNING: this will overwrite the
+    /// existing key.
+    #[structopt(long)]
+    import: Option<PathBuf>,
+
+    /// Force re-creating a wallet if it does exist already
     #[structopt(long)]
     force_create_wallet: bool,
 }
@@ -46,6 +52,8 @@ pub enum Error {
     CannotGetAddress(#[source] crate::utils::jcli::Error),
     #[error("Cannot get the wallet's public key")]
     CannotGetPublicKey(#[source] crate::utils::jcli::Error),
+    #[error("An error occurred while importing a wallet")]
+    ImportError(#[source] std::io::Error),
 }
 
 impl Command {
@@ -78,13 +86,25 @@ impl Command {
         };
 
         let mut runner = Jcli::new(&blockchain, bin);
+        let sk_path = runner.get_wallet_secret_key_path();
 
-        let sk_path = runner
-            .get_wallet_secret_key(self.force_create_wallet)
-            .map_err(Error::CannotCreateWallet)?;
+        if let Some(import_sk_path) = self.import {
+            let confirm_overwrite = dialoguer::Confirmation::new()
+                .with_text("This will overwrite the existing private key. Continue?")
+                .interact()
+                .unwrap();
+            if confirm_overwrite {
+                std::fs::copy(import_sk_path, &sk_path).map_err(Error::ImportError)?;
+            }
+        } else {
+            if !sk_path.is_file() || self.force_create_wallet {
+                runner
+                    .generate_wallet_secret_key()
+                    .map_err(Error::CannotCreateWallet)?;
+            }
+        }
 
         let public_key = runner.get_public_key().map_err(Error::CannotGetPublicKey)?;
-
         let address = runner
             .get_wallet_address(&self.prefix)
             .map_err(Error::CannotGetAddress)?;

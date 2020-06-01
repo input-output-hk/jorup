@@ -35,14 +35,18 @@ impl<'a> Jcli<'a> {
         Command::new(&self.path)
     }
 
-    pub fn get_wallet_secret_key(&mut self, force: bool) -> Result<PathBuf, Error> {
-        let wallet_path = self.blockchain.get_wallet_secret();
+    pub fn get_wallet_secret_key_path(&self) -> PathBuf {
+        self.blockchain.get_wallet_secret()
+    }
 
-        if !wallet_path.is_file() || force {
+    pub fn generate_wallet_secret_key(&mut self) -> Result<(), Error> {
+        let wallet_path = self.get_wallet_secret_key_path();
+
+        if !wallet_path.is_file() {
             self.gen_secret_key("Ed25519", &wallet_path)?;
         }
 
-        Ok(wallet_path)
+        Ok(())
     }
 
     pub fn get_wallet_address(&mut self, prefix: &str) -> Result<String, Error> {
@@ -74,7 +78,7 @@ impl<'a> Jcli<'a> {
     }
 
     pub fn get_public_key(&mut self) -> Result<String, Error> {
-        let secret_key = self.get_wallet_secret_key(false)?;
+        let secret_key = self.get_wallet_secret_key_path();
 
         if !secret_key.is_file() {
             return Err(Error::NoSecretKey);
