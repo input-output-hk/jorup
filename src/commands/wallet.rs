@@ -83,9 +83,9 @@ impl Command {
             dir.join("jcli")
         } else {
             let release = if let Some(version_req) = self.version_req {
-                Release::load(&mut cfg, &version_req)
+                Release::load(&cfg, &version_req)
             } else {
-                Release::load(&mut cfg, blockchain.jormungandr_version_req())
+                Release::load(&cfg, blockchain.jormungandr_version_req())
             }
             .map_err(|err| {
                 eprintln!("HINT: run `jorup node install`");
@@ -111,12 +111,10 @@ impl Command {
             if overwrite {
                 std::fs::copy(import_sk_path, &sk_path).map_err(Error::ImportError)?;
             }
-        } else {
-            if !sk_path.is_file() || self.force_create_wallet {
-                runner
-                    .generate_wallet_secret_key()
-                    .map_err(Error::CannotCreateWallet)?;
-            }
+        } else if !sk_path.is_file() || self.force_create_wallet {
+            runner
+                .generate_wallet_secret_key()
+                .map_err(Error::CannotCreateWallet)?;
         };
 
         let secret_config_path = runner.get_node_secrets();

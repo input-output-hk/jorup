@@ -57,6 +57,6 @@ impl TrustedPeer {
     }
 
     pub fn id(&self) -> Option<&str> {
-        self.id.as_ref().map(|s| s.as_str())
+        self.id.as_deref()
     }
 }

@@ -83,9 +83,9 @@ impl Command {
             std::fs::canonicalize(dir).map_err(Error::Canonicalize)?
         } else {
             let release = if let Some(version_req) = self.version_req {
-                Release::load(&mut cfg, &version_req)
+                Release::load(&cfg, &version_req)
             } else {
-                Release::load(&mut cfg, blockchain.jormungandr_version_req())
+                Release::load(&cfg, blockchain.jormungandr_version_req())
             }
             .map_err(|err| {
                 eprintln!("HINT: run `jorup node install`");
