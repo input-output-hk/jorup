@@ -16,7 +16,11 @@ pub enum Error {
     #[error("No secret key, did you mean to create a secret key too?")]
     NoSecretKey,
     #[error("Unable to extract the public key")]
-    ReadPublicKey(#[from] io::Error),
+    ReadPublicKey(#[source] io::Error),
+    #[error("Unable to read the secret key from the drive")]
+    ReadSecretKey(#[source] io::Error),
+    #[error("Secret key contains incorrect bytes")]
+    InvalidSecretKey,
     #[error("Cannot generate key {0}")]
     GenerateKey(String),
 }
@@ -37,6 +41,10 @@ impl<'a> Jcli<'a> {
 
     pub fn get_wallet_secret_key_path(&self) -> PathBuf {
         self.blockchain.get_wallet_secret()
+    }
+
+    pub fn get_node_secrets(&self) -> PathBuf {
+        self.blockchain.get_node_secret()
     }
 
     pub fn generate_wallet_secret_key(&mut self) -> Result<(), Error> {
@@ -120,5 +128,12 @@ impl<'a> Jcli<'a> {
         } else {
             Err(Error::GenerateKey(key_type.to_owned()))
         }
+    }
+
+    pub fn get_secret_key(&self) -> Result<String, Error> {
+        let path = self.get_wallet_secret_key_path();
+        let content = std::fs::read(path).map_err(Error::ReadSecretKey)?;
+        let key = String::from_utf8(content).map_err(|_| Error::InvalidSecretKey)?;
+        Ok(key.trim_end().to_string())
     }
 }

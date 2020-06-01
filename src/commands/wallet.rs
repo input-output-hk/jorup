@@ -2,6 +2,7 @@ use crate::{
     common::JorupConfig,
     utils::{blockchain::Blockchain, jcli::Jcli, release::Release, version::VersionReq},
 };
+use serde::Serialize;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use thiserror::Error;
@@ -52,8 +53,22 @@ pub enum Error {
     CannotGetAddress(#[source] crate::utils::jcli::Error),
     #[error("Cannot get the wallet's public key")]
     CannotGetPublicKey(#[source] crate::utils::jcli::Error),
+    #[error("Cannot get the wallet's secret key")]
+    CannotGetSecretKey(#[source] crate::utils::jcli::Error),
     #[error("An error occurred while importing a wallet")]
     ImportError(#[source] std::io::Error),
+    #[error("Failed to write node secrets configuration")]
+    NodeSecrets(#[source] std::io::Error),
+}
+
+#[derive(Serialize)]
+struct NodeSecret {
+    bft: BftSecret,
+}
+
+#[derive(Serialize)]
+struct BftSecret {
+    signing_key: String,
 }
 
 impl Command {
@@ -88,20 +103,35 @@ impl Command {
         let mut runner = Jcli::new(&blockchain, bin);
         let sk_path = runner.get_wallet_secret_key_path();
 
-        if let Some(import_sk_path) = self.import {
-            let confirm_overwrite = dialoguer::Confirmation::new()
+        let updated = if let Some(import_sk_path) = self.import {
+            let overwrite = dialoguer::Confirmation::new()
                 .with_text("This will overwrite the existing private key. Continue?")
                 .interact()
                 .unwrap();
-            if confirm_overwrite {
+            if overwrite {
                 std::fs::copy(import_sk_path, &sk_path).map_err(Error::ImportError)?;
             }
+            overwrite
         } else {
-            if !sk_path.is_file() || self.force_create_wallet {
+            let overwrite = !sk_path.is_file() || self.force_create_wallet;
+            if overwrite {
                 runner
                     .generate_wallet_secret_key()
                     .map_err(Error::CannotCreateWallet)?;
             }
+            overwrite
+        };
+
+        let secret_config_path = runner.get_node_secrets();
+
+        if updated {
+            let secret = NodeSecret {
+                bft: BftSecret {
+                    signing_key: runner.get_secret_key().map_err(Error::CannotGetSecretKey)?,
+                },
+            };
+            let contents = serde_yaml::to_string(&secret).unwrap();
+            std::fs::write(&secret_config_path, contents).map_err(Error::NodeSecrets)?;
         }
 
         let public_key = runner.get_public_key().map_err(Error::CannotGetPublicKey)?;
@@ -109,9 +139,14 @@ impl Command {
             .get_wallet_address(&self.prefix)
             .map_err(Error::CannotGetAddress)?;
 
-        println!("Secret key: {}", sk_path.display());
         println!("Public key: {}", public_key);
         println!("Wallet: {}", address);
+
+        println!("Secret key: {}", sk_path.display());
+        println!(
+            "Node secrets configuration: {}",
+            secret_config_path.display()
+        );
 
         Ok(())
     }
