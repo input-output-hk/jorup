@@ -103,13 +103,15 @@ fn install(
     let mut client = Client::new().map_err(Error::DownloaderCreate)?;
 
     let release = if load_latest {
-        let gh_release = github::find_matching_release(&mut client, version_req)?;
+        let gh_release =
+            github::find_matching_release(&mut client, github::JORMUNGANDR, version_req)?;
         Release::new_unchecked(&cfg, gh_release.version().clone())
     } else {
         match Release::load(&mut cfg, &version_req) {
             Ok(release) => release,
             Err(ReleaseError::NoCompatibleReleaseInstalled(_)) => {
-                let gh_release = github::find_matching_release(&mut client, version_req)?;
+                let gh_release =
+                    github::find_matching_release(&mut client, github::JORMUNGANDR, version_req)?;
                 Release::new_unchecked(&cfg, gh_release.version().clone())
             }
             Err(err) => return Err(Error::ReleaseLoad(err)),
