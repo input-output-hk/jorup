@@ -103,7 +103,7 @@ impl Command {
         let mut runner = Jcli::new(&blockchain, bin);
         let sk_path = runner.get_wallet_secret_key_path();
 
-        if let Some(import_sk_path) = self.import {
+        let update_secret_file = if let Some(import_sk_path) = self.import {
             let overwrite = dialoguer::Confirmation::new()
                 .with_text("This will overwrite the existing private key. Continue?")
                 .interact()
@@ -111,15 +111,19 @@ impl Command {
             if overwrite {
                 std::fs::copy(import_sk_path, &sk_path).map_err(Error::ImportError)?;
             }
+            overwrite
         } else if !sk_path.is_file() || self.force_create_wallet {
             runner
                 .generate_wallet_secret_key()
                 .map_err(Error::CannotCreateWallet)?;
+            true
+        } else {
+            false
         };
 
         let secret_config_path = runner.get_node_secrets();
 
-        if !secret_config_path.is_file() {
+        if !secret_config_path.is_file() || update_secret_file {
             let secret = NodeSecret {
                 bft: BftSecret {
                     signing_key: runner.get_secret_key().map_err(Error::CannotGetSecretKey)?,
