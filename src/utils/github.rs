@@ -145,11 +145,10 @@ pub fn find_matching_release(
 
 impl Release {
     pub fn get_asset_url(&self, platform: &str) -> Option<&str> {
-        let expected_name_part = format!("{}-generic", platform);
         let maybe_asset = self
             .assets
             .iter()
-            .find(|asset| asset.name.contains(&expected_name_part));
+            .find(|asset| asset.name.contains(platform));
         maybe_asset.map(|asset| &asset.url[..])
     }
 

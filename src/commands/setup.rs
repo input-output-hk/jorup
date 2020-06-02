@@ -1,5 +1,5 @@
 use super::Cmd;
-use crate::common::JorupConfig;
+use crate::{common::JorupConfig, utils::download};
 use std::{
     env::{self, consts::EXE_SUFFIX},
     fs, io,
@@ -51,6 +51,12 @@ pub enum Error {
     #[cfg(windows)]
     #[error("Cannot update PATH in Windows registry")]
     WinregError(#[source] io::Error),
+    #[error("Failed to check for update")]
+    UpdateCheck(#[from] crate::utils::jorup_update::Error),
+    #[error("Failed to download an update")]
+    UpdateDownload(#[from] download::Error),
+    #[error("Could not find the latest jorup binary for the current platform")]
+    UpdateAssetNotFound,
 }
 
 impl Command {
@@ -105,8 +111,36 @@ pub fn uninstall(_cfg: JorupConfig) -> Result<(), Error> {
     unimplemented!()
 }
 
-pub fn update(_cfg: JorupConfig) -> Result<(), Error> {
-    unimplemented!()
+pub fn update(cfg: JorupConfig) -> Result<(), Error> {
+    let bin_dir = cfg.bin_dir();
+    let jorup_file = bin_dir.join(format!("jorup{}", EXE_SUFFIX));
+
+    match crate::utils::check_jorup_update()? {
+        Some(release) => {
+            let perform_update = dialoguer::Confirmation::new()
+                .with_text(&format!(
+                    "An update to version {} is available. Continue?",
+                    release.version()
+                ))
+                .interact()
+                .unwrap();
+
+            if !perform_update {
+                return Ok(());
+            }
+
+            let mut client = download::Client::new()?;
+            let url = release
+                .get_asset_url(env!("TARGET"))
+                .ok_or(Error::UpdateAssetNotFound)?;
+            client.download_file("jorup", url, jorup_file)?;
+            eprintln!("Jorup was successfully updated!");
+        }
+        None => {
+            eprintln!("No updates available");
+        }
+    }
+    Ok(())
 }
 
 #[cfg(unix)]

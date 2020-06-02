@@ -13,7 +13,7 @@ use std::{
 };
 use thiserror::Error;
 
-const TARGET: &str = env!("TARGET");
+const TARGET: &str = concat!(env!("TARGET"), "-generic");
 
 pub struct Release {
     version: Version,

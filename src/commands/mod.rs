@@ -100,8 +100,22 @@ impl Cmd for RootCmd {
     fn run(self) -> Result<(), Self::Err> {
         let cfg = crate::common::JorupConfig::new(self.jorup_home, self.jorfile, self.offline)?;
 
-        if !self.offline {
-            check_jorup_update();
+        if !self.offline && !matches!(self.command, Command::Setup(_)) {
+            match crate::utils::check_jorup_update() {
+                Ok(Some(release)) => {
+                    eprintln!(
+                        r#"
+An update to version {} is available. Run `jorup setup update` or go to
+https://input-output-hk.github.io/jorup/ to download an update."#,
+                        release.version()
+                    );
+                }
+                Err(err) => {
+                    eprintln!("WARN: Could not check for jorup updates.");
+                    crate::utils::print_error(err);
+                }
+                _ => {}
+            }
         }
 
         match self.command {
@@ -121,39 +135,5 @@ impl Cmd for RootCmd {
         }
 
         Ok(())
-    }
-}
-
-fn check_jorup_update() {
-    use crate::utils::{
-        download::Client,
-        github, print_error,
-        version::{Version, VersionReq},
-    };
-
-    let version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-    let mut client = match Client::new() {
-        Ok(client) => client,
-        Err(err) => {
-            eprintln!("WARN: Could not check for jorup updates.");
-            print_error(err);
-            return;
-        }
-    };
-    let available_version =
-        match github::find_matching_release(&mut client, github::JORUP, VersionReq::Latest) {
-            Ok(release) => release.version().clone(),
-            Err(err) => {
-                eprintln!("WARN: Could not check for jorup updates.");
-                print_error(err);
-                return;
-            }
-        };
-
-    if version < available_version {
-        eprintln!(
-            "An update to version {} is available. Go to https://input-output-hk.github.io/jorup/.",
-            available_version
-        );
     }
 }
