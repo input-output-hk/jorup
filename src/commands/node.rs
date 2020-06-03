@@ -106,8 +106,19 @@ fn install(
         let gh_release = github::find_matching_release(&mut client, version_req)?;
         Release::new_unchecked(&cfg, gh_release.version().clone())
     } else {
-        match Release::load(&mut cfg, &version_req) {
-            Ok(release) => release,
+        match Release::load(&cfg, &version_req) {
+            Ok(release) => {
+                if let Some(date) = release.version().get_nightly_date() {
+                    if date < &chrono::Utc::now().date() {
+                        let gh_release = github::find_matching_release(&mut client, version_req)?;
+                        Release::new_unchecked(&cfg, gh_release.version().clone())
+                    } else {
+                        release
+                    }
+                } else {
+                    release
+                }
+            }
             Err(ReleaseError::NoCompatibleReleaseInstalled(_)) => {
                 let gh_release = github::find_matching_release(&mut client, version_req)?;
                 Release::new_unchecked(&cfg, gh_release.version().clone())
@@ -152,9 +163,9 @@ fn list(cfg: JorupConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn remove(mut cfg: JorupConfig, version: Version) -> Result<(), Error> {
+fn remove(cfg: JorupConfig, version: Version) -> Result<(), Error> {
     let version_req = VersionReq::exact(version);
-    let release = Release::load(&mut cfg, &version_req).map_err(Error::ReleaseLoad)?;
+    let release = Release::load(&cfg, &version_req).map_err(Error::ReleaseLoad)?;
     std::fs::remove_dir_all(release.dir()).map_err(Error::RemoveRelease)?;
 
     Ok(())

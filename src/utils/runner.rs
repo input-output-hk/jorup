@@ -160,10 +160,13 @@ impl<'a> RunnerControl<'a> {
             ]);
 
             for peer in blockchain.entry().trusted_peers() {
-                cmd.args(&[
-                    "--trusted-peer",
-                    &format!("{}@{}", peer.address(), peer.id()),
-                ]);
+                let address = peer.address();
+                let peer = if let Some(id) = peer.id() {
+                    format!("{}@{}", address, id)
+                } else {
+                    address.to_string()
+                };
+                cmd.args(&["--trusted-peer", &peer]);
             }
 
             if blockchain.get_node_secret().is_file() {

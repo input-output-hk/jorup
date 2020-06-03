@@ -16,7 +16,11 @@ pub enum Error {
     #[error("No secret key, did you mean to create a secret key too?")]
     NoSecretKey,
     #[error("Unable to extract the public key")]
-    ReadPublicKey(#[from] io::Error),
+    ReadPublicKey(#[source] io::Error),
+    #[error("Unable to read the secret key from the drive")]
+    ReadSecretKey(#[source] io::Error),
+    #[error("Secret key contains incorrect bytes")]
+    InvalidSecretKey,
     #[error("Cannot generate key {0}")]
     GenerateKey(String),
 }
@@ -35,32 +39,45 @@ impl<'a> Jcli<'a> {
         Command::new(&self.path)
     }
 
-    pub fn get_wallet_secret_key(&mut self, force: bool) -> Result<PathBuf, Error> {
-        let wallet_path = self.blockchain.get_wallet_secret();
+    pub fn get_wallet_secret_key_path(&self) -> PathBuf {
+        self.blockchain.get_wallet_secret()
+    }
 
-        if !wallet_path.is_file() || force {
+    pub fn get_node_secrets(&self) -> PathBuf {
+        self.blockchain.get_node_secret()
+    }
+
+    pub fn generate_wallet_secret_key(&mut self) -> Result<(), Error> {
+        let wallet_path = self.get_wallet_secret_key_path();
+
+        if !wallet_path.is_file() {
             self.gen_secret_key("Ed25519", &wallet_path)?;
         }
 
-        Ok(wallet_path)
+        Ok(())
     }
 
-    pub fn get_wallet_address(&mut self) -> Result<String, Error> {
-        let pk = self.get_public_key(self.blockchain.get_wallet_secret())?;
+    pub fn get_wallet_address(&mut self, prefix: &str) -> Result<String, Error> {
+        let pk = self.get_public_key()?;
 
-        let address = self.make_address(pk.trim_end())?;
+        let address = self.make_address(prefix, pk.trim_end())?;
 
         Ok(address.trim_end().to_owned())
     }
 
-    fn make_address<PK: AsRef<str>>(&mut self, public_key: PK) -> Result<String, Error> {
+    fn make_address<PK: AsRef<str>>(
+        &mut self,
+        prefix: &str,
+        public_key: PK,
+    ) -> Result<String, Error> {
         let output = self
             .command()
             .args(&[
                 "address",
                 "account",
                 "--testing",
-                "--prefix=jorup_",
+                "--prefix",
+                prefix,
                 public_key.as_ref(),
             ])
             .output()
@@ -68,11 +85,10 @@ impl<'a> Jcli<'a> {
         String::from_utf8(output.stdout).map_err(Error::InvalidAddress)
     }
 
-    fn get_public_key<P>(&mut self, secret_key: P) -> Result<String, Error>
-    where
-        P: AsRef<Path>,
-    {
-        if !secret_key.as_ref().is_file() {
+    pub fn get_public_key(&mut self) -> Result<String, Error> {
+        let secret_key = self.get_wallet_secret_key_path();
+
+        if !secret_key.is_file() {
             return Err(Error::NoSecretKey);
         }
 
@@ -82,12 +98,14 @@ impl<'a> Jcli<'a> {
                 "key",
                 "to-public",
                 "--input",
-                secret_key.as_ref().display().to_string().as_str(),
+                secret_key.display().to_string().as_str(),
             ])
             .output()
             .map_err(Error::ReadPublicKey)?;
 
-        String::from_utf8(output.stdout).map_err(Error::InvalidAddress)
+        String::from_utf8(output.stdout)
+            .map(|s| s.trim_end().to_string())
+            .map_err(Error::InvalidAddress)
     }
 
     fn gen_secret_key<P>(&mut self, key_type: &str, path: P) -> Result<(), Error>
@@ -110,5 +128,12 @@ impl<'a> Jcli<'a> {
         } else {
             Err(Error::GenerateKey(key_type.to_owned()))
         }
+    }
+
+    pub fn get_secret_key(&self) -> Result<String, Error> {
+        let path = self.get_wallet_secret_key_path();
+        let content = std::fs::read(path).map_err(Error::ReadSecretKey)?;
+        let key = String::from_utf8(content).map_err(|_| Error::InvalidSecretKey)?;
+        Ok(key.trim_end().to_string())
     }
 }
