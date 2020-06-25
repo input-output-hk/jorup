@@ -111,7 +111,11 @@ fn install(
             Ok(release) => {
                 if let Some(date) = release.version().get_nightly_date() {
                     if date < &chrono::Utc::now().date() {
-                        let gh_release = github::find_matching_release(&mut client, version_req)?;
+                        let gh_release = github::find_matching_release(
+                            &mut client,
+                            github::JORMUNGANDR,
+                            version_req,
+                        )?;
                         Release::new_unchecked(&cfg, gh_release.version().clone())
                     } else {
                         release

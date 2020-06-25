@@ -16,7 +16,6 @@ pub struct Blockchain {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustedPeer {
     address: String,
-    id: Option<String>,
 }
 
 impl Config {
@@ -54,9 +53,5 @@ impl Blockchain {
 impl TrustedPeer {
     pub fn address(&self) -> &str {
         &self.address
-    }
-
-    pub fn id(&self) -> Option<&str> {
-        self.id.as_deref()
     }
 }
