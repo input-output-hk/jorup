@@ -4,6 +4,9 @@ use chrono::{offset::Utc, DateTime};
 use serde::Deserialize;
 use thiserror::Error;
 
+pub const JORMUNGANDR: &str = "jormungandr";
+pub const JORUP: &str = "jorup";
+
 pub struct Release {
     version: Version,
     assets: Vec<AssetDef>,
@@ -42,10 +45,15 @@ fn download_release_by_url(client: &mut Client, url: &str) -> Result<ReleaseDef,
     serde_json::from_slice(&release_data_raw).map_err(Into::into)
 }
 
-fn get_exact_release(client: &mut Client, version: VersionReq) -> Result<Release, Error> {
+fn get_exact_release(
+    client: &mut Client,
+    repo: &str,
+    version: VersionReq,
+) -> Result<Release, Error> {
     let version = version.into_version().unwrap();
     let url = format!(
-        "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/{}",
+        "https://api.github.com/repos/input-output-hk/{}/releases/tags/{}",
+        repo,
         version.to_git_tag(),
     );
     let release_def = download_release_by_url(client, &url)?;
@@ -55,10 +63,13 @@ fn get_exact_release(client: &mut Client, version: VersionReq) -> Result<Release
     })
 }
 
-fn get_latest_release(client: &mut Client) -> Result<Release, Error> {
+fn get_latest_release(client: &mut Client, repo: &str) -> Result<Release, Error> {
     let release_def = download_release_by_url(
         client,
-        "https://api.github.com/repos/input-output-hk/jormungandr/releases/latest",
+        &format!(
+            "https://api.github.com/repos/input-output-hk/{}/releases/latest",
+            repo
+        ),
     )?;
     let version = Version::from_git_tag(&release_def.tag_name).unwrap();
     Ok(Release {
@@ -67,10 +78,13 @@ fn get_latest_release(client: &mut Client) -> Result<Release, Error> {
     })
 }
 
-fn get_nightly_release(client: &mut Client) -> Result<Release, Error> {
+fn get_nightly_release(client: &mut Client, repo: &str) -> Result<Release, Error> {
     let release_def = download_release_by_url(
         client,
-        "https://api.github.com/repos/input-output-hk/jormungandr/releases/tags/nightly",
+        &format!(
+            "https://api.github.com/repos/input-output-hk/{}/releases/tags/nightly",
+            repo
+        ),
     )?;
     let version = Version::from_git_tag(&release_def.tag_name)
         .unwrap()
@@ -81,11 +95,18 @@ fn get_nightly_release(client: &mut Client) -> Result<Release, Error> {
     })
 }
 
-fn find_release_by_req(client: &mut Client, version_req: &VersionReq) -> Result<Release, Error> {
+fn find_release_by_req(
+    client: &mut Client,
+    repo: &str,
+    version_req: &VersionReq,
+) -> Result<Release, Error> {
     let mut releases_data_raw: Vec<u8> = Vec::new();
     client.download_to_writer(
         "GitHub releases",
-        "https://api.github.com/repos/input-output-hk/jormungandr/releases",
+        &format!(
+            "https://api.github.com/repos/input-output-hk/{}/releases",
+            repo
+        ),
         &mut releases_data_raw,
     )?;
 
@@ -111,23 +132,23 @@ fn find_release_by_req(client: &mut Client, version_req: &VersionReq) -> Result<
 
 pub fn find_matching_release(
     client: &mut Client,
+    repo: &str,
     version_req: VersionReq,
 ) -> Result<Release, Error> {
     match version_req {
-        VersionReq::Latest => get_latest_release(client),
-        VersionReq::Nightly => get_nightly_release(client),
-        VersionReq::Stable(_) => find_release_by_req(client, &version_req),
-        VersionReq::ExactStable(_) => get_exact_release(client, version_req),
+        VersionReq::Latest => get_latest_release(client, repo),
+        VersionReq::Nightly => get_nightly_release(client, repo),
+        VersionReq::Stable(_) => find_release_by_req(client, repo, &version_req),
+        VersionReq::ExactStable(_) => get_exact_release(client, repo, version_req),
     }
 }
 
 impl Release {
     pub fn get_asset_url(&self, platform: &str) -> Option<&str> {
-        let expected_name_part = format!("{}-generic", platform);
         let maybe_asset = self
             .assets
             .iter()
-            .find(|asset| asset.name.contains(&expected_name_part));
+            .find(|asset| asset.name.contains(platform));
         maybe_asset.map(|asset| &asset.url[..])
     }
 

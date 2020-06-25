@@ -7,7 +7,6 @@ mod utils;
 use commands::Cmd;
 use std::{
     env::{self, consts::EXE_SUFFIX},
-    error::Error,
     ffi::OsStr,
 };
 use structopt::StructOpt;
@@ -25,12 +24,7 @@ fn main() {
 
 fn run(app: impl Cmd) {
     if let Err(error) = app.run() {
-        eprintln!("{}", error);
-        let mut source = error.source();
-        while let Some(err) = source {
-            eprintln!(" |-> {}", err);
-            source = err.source();
-        }
+        crate::utils::print_error(error);
 
         // TODO: https://github.com/rust-lang/rust/issues/43301
         //

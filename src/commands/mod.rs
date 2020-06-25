@@ -100,6 +100,24 @@ impl Cmd for RootCmd {
     fn run(self) -> Result<(), Self::Err> {
         let cfg = crate::common::JorupConfig::new(self.jorup_home, self.jorfile, self.offline)?;
 
+        if !self.offline && !matches!(self.command, Command::Setup(_)) {
+            match crate::utils::check_jorup_update() {
+                Ok(Some(release)) => {
+                    eprintln!(
+                        r#"
+An update to version {} is available. Run `jorup setup update` or go to
+https://input-output-hk.github.io/jorup/ to download an update."#,
+                        release.version()
+                    );
+                }
+                Err(err) => {
+                    eprintln!("WARN: Could not check for jorup updates.");
+                    crate::utils::print_error(err);
+                }
+                _ => {}
+            }
+        }
+
         match self.command {
             Command::Completions { shell } => Self::clap().gen_completions_to(
                 env!("CARGO_PKG_NAME"),
