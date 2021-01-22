@@ -1,5 +1,16 @@
 [
     {
+        "name": "vit-prod",
+        "description": "Jormungandr catalyst mainnet",
+        "jormungandr_versions": ">0.9",
+        "block0_hash": "e7bc69507d69ff475a6837f357c82f7fac1ee49583e88f876626ff32ef4c8f89",
+        "trusted_peers": [
+            {
+                "address": "/ip4/18.158.214.106/tcp/7100"
+            }
+        ]
+    },
+    {
         "name": "itn",
         "description": "Jormungandr incentivized testnet",
         "jormungandr_versions": ">=0.8",
