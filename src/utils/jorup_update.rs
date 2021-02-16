@@ -13,11 +13,14 @@ pub enum Error {
 }
 
 pub fn check_jorup_update() -> Result<Option<github::Release>, Error> {
+    check_update(github::JORUP)
+}
+
+pub fn check_update(app: &str) -> Result<Option<github::Release>, Error> {
     let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
     let mut client = download::Client::new().map_err(Error::Client)?;
-    let available_release =
-        github::find_matching_release(&mut client, github::JORUP, VersionReq::Latest)
-            .map_err(Error::Release)?;
+    let available_release = github::find_matching_release(&mut client, app, VersionReq::Latest)
+        .map_err(Error::Release)?;
     let res = if &current_version < available_release.version() {
         Some(available_release)
     } else {
