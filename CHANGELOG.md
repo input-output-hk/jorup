@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2021-02-24
+
+### Added
+
+- The possibility to use `jorup` as a library.
+
 ### Fixed
 
 - Cannot use `--make-default` more than once (#32).
@@ -25,5 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for `jormungandr` node ID.
 
-[Unreleased]: https://github.com/input-output-hk/jorup/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/input-output-hk/jorup/compare/v0.0.5...v0.0.6
+[Unreleased]: https://github.com/input-output-hk/jorup/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/input-output-hk/jorup/compare/v0.5.0...v0.6.1
+[0.6.0]: https://github.com/input-output-hk/jorup/compare/v0.5.0...v0.6.0
