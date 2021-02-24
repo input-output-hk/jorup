@@ -9,7 +9,6 @@ on:
 jobs:
   test:
     name: Test Suite
-    needs: lints
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -50,3 +49,4 @@ jobs:
         continue-on-error: false
         with:
           command: clippy
+          args: -- -D warnings
