@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      id: ${{ steps.create_release.outputs.id }}
     steps:
       - name: Create release
         id: create_release
@@ -20,7 +21,7 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
-          draft: false
+          draft: true
           prerelease: false
 
   release_assets:
@@ -94,3 +95,32 @@ jobs:
           asset_name: jorup-installer-${{ steps.get_version.outputs.version }}.exe
           asset_path: ./target/innosetup/jorup-init.exe
           asset_content_type: application/octet-stream
+
+  publish_release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: [create_release, release_assets]
+    steps:
+      - name: Publish release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: gh api -X PATCH /repos/$GITHUB_REPOSITORY/releases/${{ needs.create_release.outputs.id }} -f draft=false
+
+  update_gh_release_page:
+    name: Update GitHub release page
+    runs-on: ubuntu-latest
+    needs: publish_release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Generate documentation pages
+        run: ./ci/generate_docs.sh ${{ github.ref }}
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          keep_files: true
