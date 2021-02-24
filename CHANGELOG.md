@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Cannot use `--make-default` more than once (#32).
+
 ## [0.6.0] - 2020-06-25
 
 ### Added

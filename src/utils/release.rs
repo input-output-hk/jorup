@@ -38,6 +38,8 @@ pub enum Error {
     #[cfg(windows)]
     #[error("Cannot unpack assset: {1}")]
     CannotUnpack(#[source] zip::result::ZipError, PathBuf),
+    #[error("Cannot set the release as default")]
+    CannotSetDefault(#[source] io::Error),
 }
 
 pub fn list_installed_releases(cfg: &JorupConfig) -> Result<Vec<Release>, Error> {
@@ -85,8 +87,17 @@ impl Release {
         let install_jormungandr = bin_dir.join("jormungandr");
         let install_jcli = bin_dir.join("jcli");
 
-        create_symlink(self.get_jormungandr(), install_jormungandr).unwrap();
-        create_symlink(self.get_jcli(), install_jcli).unwrap();
+        // remove old symlinks
+        if install_jormungandr.exists() {
+            std::fs::remove_file(&install_jormungandr).map_err(Error::CannotSetDefault)?;
+        }
+        if install_jcli.exists() {
+            std::fs::remove_file(&install_jcli).map_err(Error::CannotSetDefault)?;
+        }
+
+        create_symlink(self.get_jormungandr(), install_jormungandr)
+            .map_err(Error::CannotSetDefault)?;
+        create_symlink(self.get_jcli(), install_jcli).map_err(Error::CannotSetDefault)?;
 
         Ok(())
     }
