@@ -1,10 +1,8 @@
-mod commands;
-mod common;
-mod config;
-mod jormungandr_config;
-mod utils;
+use jorup::{
+    commands::{self, Cmd},
+    utils,
+};
 
-use commands::Cmd;
 use std::{
     env::{self, consts::EXE_SUFFIX},
     ffi::OsStr,
@@ -24,7 +22,7 @@ fn main() {
 
 fn run(app: impl Cmd) {
     if let Err(error) = app.run() {
-        crate::utils::print_error(error);
+        utils::print_error(error);
 
         // TODO: https://github.com/rust-lang/rust/issues/43301
         //
