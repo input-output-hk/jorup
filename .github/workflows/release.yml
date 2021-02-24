@@ -61,10 +61,12 @@ jobs:
 
       - name: Build jorup
         uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: -C lto -C embed-bitcode=yes
         with:
           use-cross: ${{ matrix.config.cross }}
-          command: rustc
-          args: --bin jorup --release --target ${{ matrix.config.target }} -- -C lto
+          command: build
+          args: --bin jorup --release --target ${{ matrix.config.target }} --verbose
 
       - name: Create Windows installer
         if: matrix.config.os == 'windows-latest'
