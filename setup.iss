@@ -1,5 +1,5 @@
 #define MyAppName "jorup"
-#define MyAppVersion "0.5.0"
+#define MyAppVersion "0.6.1"
 #define MyAppPublisher "Input Output HK Limited"
 #define MyAppURL "https://input-output-hk.github.io/jorup/"
 #define MyAppExeName "jorup.exe"
