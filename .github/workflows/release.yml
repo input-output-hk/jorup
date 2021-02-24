@@ -64,7 +64,7 @@ jobs:
         with:
           use-cross: ${{ matrix.config.cross }}
           command: rustc
-          args: --release --target ${{ matrix.config.target }} -- -C lto
+          args: --bin jorup --release --target ${{ matrix.config.target }} -- -C lto
 
       - name: Create Windows installer
         if: matrix.config.os == 'windows-latest'
