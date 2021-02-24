@@ -175,7 +175,7 @@ fn do_add_to_path(cfg: &JorupConfig) -> Result<(), Error> {
         } else {
             String::new()
         };
-        let addition = format!("\n{}", shell_export_string(cfg)?);
+        let addition = format!("\n{}", shell_export_string(cfg));
         if !file.contains(&addition) {
             use std::io::Write as _;
             let mut writer = fs::OpenOptions::new()
@@ -265,8 +265,8 @@ fn get_add_path_methods() -> Vec<PathBuf> {
 }
 
 #[cfg(unix)]
-fn shell_export_string(cfg: &JorupConfig) -> Result<String, Error> {
+fn shell_export_string(cfg: &JorupConfig) -> String {
     let path = cfg.bin_dir().display().to_string();
     // The path is *pre-pended* in case there are system-installed
-    Ok(format!(r#"export PATH="{}:$PATH""#, path))
+    format!(r#"export PATH="{}:$PATH""#, path)
 }

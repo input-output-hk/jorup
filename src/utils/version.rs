@@ -12,7 +12,7 @@ use thiserror::Error;
 
 const DATEFMT: &str = "%Y%m%d";
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Version {
     Nightly(Option<Date<Utc>>),
     Stable(SemverVersion),
@@ -125,10 +125,7 @@ impl VersionReq {
     pub fn matches(&self, version: &Version) -> bool {
         match self {
             VersionReq::Latest => false,
-            VersionReq::Nightly => match version {
-                Version::Nightly(_) => true,
-                _ => false,
-            },
+            VersionReq::Nightly => matches!(version, Version::Nightly(_)),
             VersionReq::Stable(version_req) => match version {
                 Version::Nightly(_) => false,
                 Version::Stable(version) => version_req.matches(version),
@@ -252,5 +249,11 @@ impl PartialOrd for Version {
             },
         };
         Some(res)
+    }
+}
+
+impl Ord for Version {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
     }
 }

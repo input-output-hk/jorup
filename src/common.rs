@@ -35,7 +35,7 @@ impl JorupConfig {
     ) -> Result<Self, Error> {
         let home_dir = jorup_home
             .or_else(|| dirs::home_dir().map(|d| d.join(".jorup")))
-            .ok_or_else(|| Error::NoHomeDir)?;
+            .ok_or(Error::NoHomeDir)?;
 
         let home_dir = if home_dir.is_absolute() {
             home_dir

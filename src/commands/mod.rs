@@ -62,7 +62,8 @@ enum Command {
         shell: structopt::clap::Shell,
     },
 
-    Run(run::Command),
+    // boxing because the variant is too large compared to others
+    Run(Box<run::Command>),
     Shutdown(shutdown::Command),
     Info(info::Command),
     Wallet(wallet::Command),
